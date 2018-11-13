@@ -80,10 +80,7 @@ func _on_FileMenu_id_pressed(id):
 		MENU_FILE_OPEN:
 			_open_dialog.popup_centered_ratio()
 		MENU_FILE_SAVE:
-			if _current_file == null:
-				_save_dialog.popup_centered_ratio()
-			else:
-				save_file(_current_file)
+			_save()
 		MENU_FILE_SAVE_AS:
 			_save_dialog.popup_centered_ratio()
 
@@ -98,6 +95,17 @@ func _on_OpenDialog_file_selected(filepath):
 
 func _on_SaveDialog_file_selected(filepath):
 	save_file(filepath)
+
+
+func _on_SaveButton_pressed():
+	_save()
+
+
+func _save():
+	if _current_file == null:
+		_save_dialog.popup_centered_ratio()
+	else:
+		save_file(_current_file)
 
 
 func load_file(filepath):
