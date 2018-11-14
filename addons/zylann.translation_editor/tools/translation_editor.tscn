@@ -1,9 +1,10 @@
-[gd_scene load_steps=3 format=2]
+[gd_scene load_steps=4 format=2]
 
 [ext_resource path="res://addons/zylann.translation_editor/tools/translation_editor.gd" type="Script" id=1]
-[ext_resource path="res://addons/zylann.translation_editor/tools/icons/icon_save.svg" type="Texture" id=2]
+[ext_resource path="res://addons/zylann.translation_editor/tools/icons/icon_load.svg" type="Texture" id=2]
+[ext_resource path="res://addons/zylann.translation_editor/tools/icons/icon_save.svg" type="Texture" id=3]
 
-[node name="TranslationEditor" type="Panel"]
+[node name="TranslationEditor" type="Panel" index="0"]
 
 anchor_left = 0.0
 anchor_top = 0.0
@@ -118,7 +119,7 @@ mouse_default_cursor_shape = 0
 size_flags_horizontal = 1
 size_flags_vertical = 1
 
-[node name="SaveButton" type="ToolButton" parent="VBoxContainer/MenuBar" index="3"]
+[node name="OpenButton" type="ToolButton" parent="VBoxContainer/MenuBar" index="3"]
 
 anchor_left = 0.0
 anchor_top = 0.0
@@ -139,6 +140,30 @@ enabled_focus_mode = 2
 shortcut = null
 group = null
 icon = ExtResource( 2 )
+flat = true
+align = 1
+
+[node name="SaveButton" type="ToolButton" parent="VBoxContainer/MenuBar" index="4"]
+
+anchor_left = 0.0
+anchor_top = 0.0
+anchor_right = 0.0
+anchor_bottom = 0.0
+margin_left = 119.0
+margin_right = 147.0
+margin_bottom = 24.0
+rect_pivot_offset = Vector2( 0, 0 )
+rect_clip_content = false
+focus_mode = 2
+mouse_filter = 0
+mouse_default_cursor_shape = 0
+size_flags_horizontal = 1
+size_flags_vertical = 1
+toggle_mode = false
+enabled_focus_mode = 2
+shortcut = null
+group = null
+icon = ExtResource( 3 )
 flat = true
 align = 1
 
@@ -469,6 +494,8 @@ text = "Status"
 percent_visible = 1.0
 lines_skipped = 0
 max_lines_visible = -1
+
+[connection signal="pressed" from="VBoxContainer/MenuBar/OpenButton" to="." method="_on_OpenButton_pressed"]
 
 [connection signal="pressed" from="VBoxContainer/MenuBar/SaveButton" to="." method="_on_SaveButton_pressed"]
 

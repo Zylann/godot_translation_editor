@@ -63,6 +63,13 @@ func _ready():
 	if _base_control != null:
 		dialogs_parent = _base_control
 	
+	# In the editor the parent is still busy setting up children...
+	call_deferred("_setup_dialogs", dialogs_parent)
+	
+	_update_status_label()
+
+
+func _setup_dialogs(dialogs_parent):
 	_open_dialog = FileDialog.new()
 	_open_dialog.window_title = "Open translations"
 	_open_dialog.add_filter("*.csv ; CSV files")
@@ -97,8 +104,6 @@ func _ready():
 	_remove_language_confirmation_dialog.dialog_text = "Do you really want to remove this language? (There is no undo!)"
 	_remove_language_confirmation_dialog.connect("confirmed", self, "_on_RemoveLanguageConfirmationDialog_confirmed")
 	dialogs_parent.add_child(_remove_language_confirmation_dialog)
-	
-	_update_status_label()
 
 
 func configure_for_godot_integration(base_control):
@@ -113,7 +118,7 @@ func configure_for_godot_integration(base_control):
 func _on_FileMenu_id_pressed(id):
 	match id:
 		MENU_FILE_OPEN:
-			_open_dialog.popup_centered_ratio()
+			_open()
 		
 		MENU_FILE_SAVE:
 			_save()
@@ -150,12 +155,20 @@ func _on_SaveFolderDialog_dir_selected(filepath):
 	save_file(filepath, FORMAT_GETTEXT)
 
 
+func _on_OpenButton_pressed():
+	_open()
+
+
 func _on_SaveButton_pressed():
 	_save()
 
 
 func _on_LanguageSelectionDialog_language_selected(language):
 	_add_language(language)
+
+
+func _open():
+	_open_dialog.popup_centered_ratio()
 
 
 func _save():
@@ -432,4 +445,3 @@ func _remove_language(language):
 func _on_RemoveLanguageConfirmationDialog_confirmed():
 	var language = get_current_language()
 	_remove_language(language)
-
