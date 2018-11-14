@@ -305,7 +305,7 @@ func save_file(path, format):
 			languages_to_save = _modified_languages.keys()
 		saved_languages = PoLoader.save_po_translations(path, _data, languages_to_save)
 		
-	elif format == "csv":
+	elif format == FORMAT_CSV:
 		saved_languages = CsvLoader.save_csv_translation(path, _data)
 		
 	else:
