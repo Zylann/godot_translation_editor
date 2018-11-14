@@ -362,6 +362,15 @@ const _locales = [
 	["zu_ZA", "Zulu (South Africa)"]
 ]
 
+
 static func get_all_locales():
 	return _locales
+
+
+static func get_all_locale_ids():
+	var ids = []
+	ids.resize(len(_locales))
+	for i in len(_locales):
+		ids[i] = _locales[i][0]
+	return ids
 

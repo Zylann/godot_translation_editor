@@ -1,16 +1,24 @@
 tool
 
-static func load_po_translation(folder_path, languages):
+static func load_po_translation(folder_path, valid_locales):
 	var all_strings = {}
+	
+	var languages = get_languages_in_folder(folder_path, valid_locales)
+	
+	if len(languages) == 0:
+		printerr("No .po languages were found in ", folder_path)
+		return all_strings
 	
 	for language in languages:
 		var filepath = folder_path.plus_file(str(language, ".po"))
 		
 		var f = File.new()
-		var err = f.open(filepath)
+		var err = f.open(filepath, File.READ)
 		if err != OK:
 			printerr("Could not open file ", filepath, " for read, error ", err)
 			return null
+		
+		f.store_line("")
 		
 		var comment = ""
 		var msgid = ""
@@ -21,23 +29,23 @@ static func load_po_translation(folder_path, languages):
 		var comments = []
 		
 		while not f.eof_reached():
-			var line = f.get_line()
+			var line = f.get_line().strip_edges()
 			
-			if line[0] == "#":
-				comment = str(comment, "\n", line.substr(1, len(line) - 1).strip_edges())
+			if line != "" and line[0] == "#":
+				comment = str(comment, "\n", line.right(1).strip_edges())
 				continue
 			
 			var space_index = line.find(" ")
 			
 			if line.begins_with("msgid"):
-				msgid = _parse_msg(line.substr(space_index), len(line) - space_index)
+				msgid = _parse_msg(line.right(space_index))
 				last_is_msgid = true
 				
-			elif line.begin_with("msgstr"):
-				msgstr = _parse_msg(line.substr(space_index), len(line) - space_index)
+			elif line.begins_with("msgstr"):
+				msgstr = _parse_msg(line.right(space_index))
 				last_is_msgid = false
 				
-			elif line.begin_with('"'):
+			elif line.begins_with('"'):
 				if last_is_msgid:
 					msgid = str(msgid, _parse_msg(line))
 				else:
@@ -51,6 +59,8 @@ static func load_po_translation(folder_path, languages):
 						"comments": ""
 					}
 					all_strings[msgid] = s
+				else:
+					s = all_strings[msgid]
 				s.translations[language] = msgstr
 				if s.comments == "":
 					s.comments = comment
@@ -147,3 +157,23 @@ static func _write_msg(f, msgtype, msg):
 	f.store_line(str(msgtype, " \"", lines[0], "\""))
 	for i in range(1, len(lines)):
 		f.store_line(str(" \"", lines[i], "\""))
+
+
+static func get_languages_in_folder(folder_path, valid_locales):
+	var result = []
+	var d = Directory.new()
+	var err = d.open(folder_path)
+	if err != OK:
+		printerr("Could not open directory ", folder_path, ", error ", err)
+		return result
+	d.list_dir_begin()
+	var fname = d.get_next()
+	while fname != "":
+		if not d.current_is_dir():
+			var ext = fname.get_extension()
+			if ext == "po":
+				var language = fname.get_basename().get_file()
+				if valid_locales.find(language) != -1:
+					result.append(language)
+		fname = d.get_next()
+	return result

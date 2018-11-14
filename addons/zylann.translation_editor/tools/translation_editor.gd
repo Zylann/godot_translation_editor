@@ -3,14 +3,19 @@ extends Panel
 
 const CsvLoader = preload("csv_loader.gd")
 const PoLoader = preload("po_loader.gd")
+const Locales = preload("locales.gd")
 const StringEditionDialog = preload("string_edition_dialog.tscn")
 const LanguageSelectionDialog = preload("language_selection_dialog.tscn")
 
 const MENU_FILE_OPEN = 0
 const MENU_FILE_SAVE = 1
-const MENU_FILE_SAVE_AS = 2
-const MENU_FILE_ADD_LANGUAGE = 3
-const MENU_FILE_REMOVE_LANGUAGE = 4
+const MENU_FILE_SAVE_AS_CSV = 2
+const MENU_FILE_SAVE_AS_PO = 3
+const MENU_FILE_ADD_LANGUAGE = 4
+const MENU_FILE_REMOVE_LANGUAGE = 5
+
+const FORMAT_CSV = 0
+const FORMAT_GETTEXT = 1
 
 onready var _file_menu = get_node("VBoxContainer/MenuBar/FileMenu")
 onready var _edit_menu = get_node("VBoxContainer/MenuBar/EditMenu")
@@ -23,14 +28,16 @@ var _string_edit_dialog = null
 var _language_selection_dialog = null
 var _remove_language_confirmation_dialog = null
 var _open_dialog = null
-var _save_dialog = null
+var _save_file_dialog = null
+var _save_folder_dialog = null
 # This is set when integrated as a Godot plugin
 var _base_control = null
 var _translation_edits = {}
 
 var _data = {}
 var _languages = []
-var _current_file = null
+var _current_path = null
+var _current_format = FORMAT_CSV
 var _modified_languages = {}
 
 
@@ -41,7 +48,8 @@ func _ready():
 	
 	_file_menu.get_popup().add_item("Open...", MENU_FILE_OPEN)
 	_file_menu.get_popup().add_item("Save", MENU_FILE_SAVE)
-	_file_menu.get_popup().add_item("Save as...", MENU_FILE_SAVE_AS)
+	_file_menu.get_popup().add_item("Save as CSV...", MENU_FILE_SAVE_AS_CSV)
+	_file_menu.get_popup().add_item("Save as PO...", MENU_FILE_SAVE_AS_PO)
 	_file_menu.get_popup().add_separator()
 	_file_menu.get_popup().add_item("Add language...", MENU_FILE_ADD_LANGUAGE)
 	_file_menu.get_popup().add_item("Remove language", MENU_FILE_REMOVE_LANGUAGE)
@@ -53,7 +61,6 @@ func _ready():
 	var dialogs_parent = self
 	if _base_control != null:
 		dialogs_parent = _base_control
-		self_modulate = Color(0,0,0,0)
 	
 	_open_dialog = FileDialog.new()
 	_open_dialog.window_title = "Open translations"
@@ -63,13 +70,18 @@ func _ready():
 	_open_dialog.connect("file_selected", self, "_on_OpenDialog_file_selected")
 	dialogs_parent.add_child(_open_dialog)
 
-	_save_dialog = FileDialog.new()
-	_save_dialog.window_title = "Save translations"
-	_save_dialog.add_filter("*.csv ; CSV files")
-	_save_dialog.add_filter("*.po ; Gettext files")
-	_save_dialog.mode = FileDialog.MODE_SAVE_FILE
-	_save_dialog.connect("file_selected", self, "_on_SaveDialog_file_selected")
-	dialogs_parent.add_child(_save_dialog)
+	_save_file_dialog = FileDialog.new()
+	_save_file_dialog.window_title = "Save translations as CSV"
+	_save_file_dialog.add_filter("*.csv ; CSV files")
+	_save_file_dialog.mode = FileDialog.MODE_SAVE_FILE
+	_save_file_dialog.connect("file_selected", self, "_on_SaveFileDialog_file_selected")
+	dialogs_parent.add_child(_save_file_dialog)
+
+	_save_folder_dialog = FileDialog.new()
+	_save_folder_dialog.window_title = "Save translations as gettext .po files"
+	_save_folder_dialog.mode = FileDialog.MODE_OPEN_DIR
+	_save_folder_dialog.connect("dir_selected", self, "_on_SaveFolderDialog_dir_selected")
+	dialogs_parent.add_child(_save_folder_dialog)
 	
 	_string_edit_dialog = StringEditionDialog.instance()
 	_string_edit_dialog.set_validator(funcref(self, "_validate_new_string_id"))
@@ -90,6 +102,9 @@ func configure_for_godot_integration(base_control):
 	# You have to call this before adding to the tree
 	assert(not is_inside_tree())
 	_base_control = base_control
+	# Make underlying panel transparent because otherwise it looks bad in the editor
+	# TODO Would be better to not draw the panel background conditionally
+	self_modulate = Color(0, 0, 0, 0)
 
 
 func _on_FileMenu_id_pressed(id):
@@ -100,8 +115,11 @@ func _on_FileMenu_id_pressed(id):
 		MENU_FILE_SAVE:
 			_save()
 		
-		MENU_FILE_SAVE_AS:
-			_save_dialog.popup_centered_ratio()
+		MENU_FILE_SAVE_AS_CSV:
+			_save_file_dialog.popup_centered_ratio()
+
+		MENU_FILE_SAVE_AS_PO:
+			_save_folder_dialog.popup_centered_ratio()
 		
 		MENU_FILE_ADD_LANGUAGE:
 			_language_selection_dialog.configure(_languages)
@@ -121,8 +139,12 @@ func _on_OpenDialog_file_selected(filepath):
 	load_file(filepath)
 
 
-func _on_SaveDialog_file_selected(filepath):
-	save_file(filepath)
+func _on_SaveFileDialog_file_selected(filepath):
+	save_file(filepath, FORMAT_CSV)
+
+
+func _on_SaveFolderDialog_dir_selected(filepath):
+	save_file(filepath, FORMAT_GETTEXT)
 
 
 func _on_SaveButton_pressed():
@@ -134,18 +156,25 @@ func _on_LanguageSelectionDialog_language_selected(language):
 
 
 func _save():
-	if _current_file == null:
-		_save_dialog.popup_centered_ratio()
+	if _current_path == null:
+		# Have to default to CSV for now...
+		_save_file_dialog.popup_centered_ratio()
 	else:
-		save_file(_current_file)
+		save_file(_current_path, _current_format)
 
 
 func load_file(filepath):
 	var ext = filepath.get_extension()
+	
 	if ext == "po":
-		_data = PoLoader.load_po_translation(filepath)
+		var valid_locales = Locales.get_all_locale_ids()
+		_data = PoLoader.load_po_translation(filepath.get_base_dir(), valid_locales)
+		_current_format = FORMAT_GETTEXT
+		
 	elif ext == "csv":
 		_data = CsvLoader.load_csv_translation(filepath)
+		_current_format = FORMAT_CSV
+		
 	else:
 		printerr("Unknown file format, cannot load ", filepath)
 		return
@@ -168,7 +197,7 @@ func load_file(filepath):
 		_create_translation_edit(language)
 		
 	refresh_list()
-	_current_file = filepath
+	_current_path = filepath
 	_modified_languages.clear()
 
 
@@ -232,9 +261,10 @@ func _set_language_tab_title(language, title):
 	var page = _translation_edits[language]
 	for i in _translation_tab_container.get_child_count():
 		if _translation_tab_container.get_child(i) == page:
-			# TODO There seem to be a Godot bug, tab titles don't always update unless you click on them Oo
-			print("Set tab title ", title)
 			_translation_tab_container.set_tab_title(i, title)
+			# TODO There seem to be a Godot bug, tab titles don't update unless you click on them Oo
+			# See https://github.com/godotengine/godot/issues/23696
+			_translation_tab_container.update()
 			return
 	# Something bad happened
 	assert(false)
@@ -250,22 +280,28 @@ func get_current_language():
 	return null
 
 
-func save_file(filepath):
-	var ext = filepath.get_extension()
+func save_file(path, format):
 	var saved_languages = []
 	
-	if ext == "po":
-		var languages_to_save = _modified_languages.keys()
-		saved_languages = PoLoader.save_po_translations(filepath.get_base_dir(), _data, languages_to_save)
-	elif ext == "csv":
-		saved_languages = CsvLoader.save_csv_translation(filepath, _data)
+	if format == FORMAT_GETTEXT:
+		var languages_to_save
+		if _current_format != FORMAT_GETTEXT:
+			languages_to_save = _languages
+		else:
+			languages_to_save = _modified_languages.keys()
+		saved_languages = PoLoader.save_po_translations(path, _data, languages_to_save)
+		
+	elif format == "csv":
+		saved_languages = CsvLoader.save_csv_translation(path, _data)
+		
 	else:
-		printerr("Unknown file format, cannot save ", filepath)
+		printerr("Unknown file format, cannot save ", path)
 
 	for language in saved_languages:
 		_set_language_unmodified(language)
-
-	_current_file = filepath
+	
+	_current_format = format
+	_current_path = path
 
 
 func refresh_list():
@@ -282,7 +318,7 @@ func _on_StringList_item_selected(index):
 	var s = _data[str_id]
 	for language in _languages:
 		var e = _translation_edits[language]
-		e.show()
+		#e.show()
 		if s.translations.has(language):
 			e.text = s.translations[language]
 		else:
