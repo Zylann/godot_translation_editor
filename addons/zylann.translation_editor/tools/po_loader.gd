@@ -32,7 +32,10 @@ static func load_po_translation(folder_path, valid_locales):
 			var line = f.get_line().strip_edges()
 			
 			if line != "" and line[0] == "#":
-				comment = str(comment, "\n", line.right(1).strip_edges())
+				if comment == "":
+					comment = str(comment, line.right(1))
+				else:
+					comment = str(comment, "\n", line.right(1))
 				continue
 			
 			var space_index = line.find(" ")
