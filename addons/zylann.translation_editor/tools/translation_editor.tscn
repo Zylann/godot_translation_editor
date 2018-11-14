@@ -3,7 +3,7 @@
 [ext_resource path="res://addons/zylann.translation_editor/tools/translation_editor.gd" type="Script" id=1]
 [ext_resource path="res://addons/zylann.translation_editor/tools/icons/icon_save.svg" type="Texture" id=2]
 
-[node name="TranslationEditor" type="Panel" index="0"]
+[node name="TranslationEditor" type="Panel"]
 
 anchor_left = 0.0
 anchor_top = 0.0
@@ -432,7 +432,7 @@ caret_block_mode = false
 caret_blink = false
 caret_blink_speed = 0.65
 caret_moving_by_right_click = true
-_sections_unfolded = [ "Size Flags" ]
+_sections_unfolded = [ "Rect", "Size Flags" ]
 
 [node name="StatusBar" type="HBoxContainer" parent="VBoxContainer" index="2"]
 
@@ -479,5 +479,7 @@ max_lines_visible = -1
 [connection signal="pressed" from="VBoxContainer/Main/LeftPane/StringListActions/RemoveButton" to="." method="_on_RemoveButton_pressed"]
 
 [connection signal="pressed" from="VBoxContainer/Main/LeftPane/StringListActions/RenameButton" to="." method="_on_RenameButton_pressed"]
+
+[connection signal="text_changed" from="VBoxContainer/Main/RightPane/VSplitContainer/VBoxContainer/NotesEdit" to="." method="_on_NotesEdit_text_changed"]
 
 

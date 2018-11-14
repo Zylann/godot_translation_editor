@@ -49,18 +49,21 @@ class _Sorter:
 
 
 static func save_csv_translation(filepath, data):
+	print("Saving: ", data)
 	var languages = {}
 	for id in data:
 		var s = data[id]
 		for language in s.translations:
-			languages[id] = true
+			languages[language] = true
 	
-	assert(len(data.languages) > 0)
+	if len(languages) == 0:
+		printerr("No language found, nothing to save")
+		return []
 	
 	languages = languages.keys()
 	languages.sort()
 	
-	var first_row = []
+	var first_row = ["id"]
 	first_row.resize(len(languages) + 1)
 	for i in len(languages):
 		first_row[i + 1] = languages[i]
@@ -78,10 +81,10 @@ static func save_csv_translation(filepath, data):
 			var text = ""
 			if s.translations.has(languages[i]):
 				text = s.translations[languages[i]]
-			row[i] = text
+			row[i + 1] = text
 		rows[row_index] = row
 		row_index += 1
-	
+	print(rows)
 	var sorter = _Sorter.new()
 	rows.sort_custom(sorter, "sort")
 
@@ -91,29 +94,26 @@ static func save_csv_translation(filepath, data):
 	var err = f.open(filepath, File.WRITE)
 	if err != OK:
 		printerr("Could not open ", filepath, " for write, code ", err)
-		return false
+		return []
 
-	for h in first_row:
-		f.store_string(str(",", h))
-	f.store_string("\n")
-
+	store_csv_line(f, first_row)
 	for row in rows:
-		for i in len(row):
-			var text = row[i]
-			if i == 0:
-				f.store_string(text)
-			else:
-				f.store_string(",")
-				# Behavior taken from LibreOffice
-				if text.contains(delim):
-					if text.contains('"'):
-						text = text.replace('"', '""')
-					text = str('"', text, '"')
-				f.store_string(text)
-		f.store_string("\n")
+		store_csv_line(f, row)
 	
 	f.close()
 	print("Saved ", filepath)
-	return true
+	var saved_languages = languages
+	return saved_languages
 
+
+static func store_csv_line(f, a, delim = ","):
+	for i in len(a):
+		if i > 0:
+			f.store_string(",")
+		var text = str(a[i])
+		# Behavior taken from LibreOffice
+		if text.find(delim) != -1 or text.find('"') != -1 or text.find("\n") != -1:
+			text = str('"', text.replace('"', '""'), '"')
+		f.store_string(text)
+	f.store_string("\n")
 

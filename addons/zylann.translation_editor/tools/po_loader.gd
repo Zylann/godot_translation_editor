@@ -81,6 +81,7 @@ class _Sorter:
 
 static func save_po_translations(folder_path, translations, languages_to_save):
 	var sorter = _Sorter.new()
+	var saved_languages = []
 	
 	for language in languages_to_save:
 		
@@ -115,6 +116,9 @@ static func save_po_translations(folder_path, translations, languages_to_save):
 			f.store_line("")
 		
 		f.close()
+		saved_languages.append(language)
+	
+	return saved_languages
 
 
 static func _write_msg(f, msgtype, msg):

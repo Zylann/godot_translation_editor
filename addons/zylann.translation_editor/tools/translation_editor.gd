@@ -4,10 +4,13 @@ extends Panel
 const CsvLoader = preload("csv_loader.gd")
 const PoLoader = preload("po_loader.gd")
 const StringEditionDialog = preload("string_edition_dialog.tscn")
+const LanguageSelectionDialog = preload("language_selection_dialog.tscn")
 
 const MENU_FILE_OPEN = 0
 const MENU_FILE_SAVE = 1
 const MENU_FILE_SAVE_AS = 2
+const MENU_FILE_ADD_LANGUAGE = 3
+const MENU_FILE_REMOVE_LANGUAGE = 4
 
 onready var _file_menu = get_node("VBoxContainer/MenuBar/FileMenu")
 onready var _edit_menu = get_node("VBoxContainer/MenuBar/EditMenu")
@@ -17,18 +20,18 @@ onready var _translation_tab_container = \
 onready var _notes_edit = get_node("VBoxContainer/Main/RightPane/VSplitContainer/VBoxContainer/NotesEdit")
 
 var _string_edit_dialog = null
+var _language_selection_dialog = null
+var _remove_language_confirmation_dialog = null
 var _open_dialog = null
 var _save_dialog = null
-
 # This is set when integrated as a Godot plugin
 var _base_control = null
-
-var _data = null
-# TODO Make this a config of some sort
-var _languages = ["en", "fr"]
-var _current_file = null
-
 var _translation_edits = {}
+
+var _data = {}
+var _languages = []
+var _current_file = null
+var _modified_languages = {}
 
 
 func _ready():
@@ -39,6 +42,10 @@ func _ready():
 	_file_menu.get_popup().add_item("Open...", MENU_FILE_OPEN)
 	_file_menu.get_popup().add_item("Save", MENU_FILE_SAVE)
 	_file_menu.get_popup().add_item("Save as...", MENU_FILE_SAVE_AS)
+	_file_menu.get_popup().add_separator()
+	_file_menu.get_popup().add_item("Add language...", MENU_FILE_ADD_LANGUAGE)
+	_file_menu.get_popup().add_item("Remove language", MENU_FILE_REMOVE_LANGUAGE)
+	_file_menu.get_popup().set_item_disabled(_file_menu.get_popup().get_item_index(MENU_FILE_REMOVE_LANGUAGE), true)
 	_file_menu.get_popup().connect("id_pressed", self, "_on_FileMenu_id_pressed")
 	
 	_edit_menu.get_popup().connect("id_pressed", self, "_on_EditMenu_id_pressed")
@@ -66,7 +73,17 @@ func _ready():
 	
 	_string_edit_dialog = StringEditionDialog.instance()
 	_string_edit_dialog.set_validator(funcref(self, "_validate_new_string_id"))
+	_string_edit_dialog.connect("submitted", self, "_on_StringEditionDialog_submitted")
 	dialogs_parent.add_child(_string_edit_dialog)
+	
+	_language_selection_dialog = LanguageSelectionDialog.instance()
+	_language_selection_dialog.connect("language_selected", self, "_on_LanguageSelectionDialog_language_selected")
+	dialogs_parent.add_child(_language_selection_dialog)
+	
+	_remove_language_confirmation_dialog = ConfirmationDialog.new()
+	_remove_language_confirmation_dialog.dialog_text = "Do you really want to remove this language? (There is no undo!)"
+	_remove_language_confirmation_dialog.connect("confirmed", self, "_on_RemoveLanguageConfirmationDialog_confirmed")
+	dialogs_parent.add_child(_remove_language_confirmation_dialog)
 
 
 func configure_for_godot_integration(base_control):
@@ -79,10 +96,21 @@ func _on_FileMenu_id_pressed(id):
 	match id:
 		MENU_FILE_OPEN:
 			_open_dialog.popup_centered_ratio()
+		
 		MENU_FILE_SAVE:
 			_save()
+		
 		MENU_FILE_SAVE_AS:
 			_save_dialog.popup_centered_ratio()
+		
+		MENU_FILE_ADD_LANGUAGE:
+			_language_selection_dialog.configure(_languages)
+			_language_selection_dialog.popup_centered_ratio()
+			
+		MENU_FILE_REMOVE_LANGUAGE:
+			var language = get_current_language()
+			_remove_language_confirmation_dialog.window_title = str("Remove language `", language, "`")
+			_remove_language_confirmation_dialog.popup_centered_minsize()
 
 
 func _on_EditMenu_id_pressed(id):
@@ -99,6 +127,10 @@ func _on_SaveDialog_file_selected(filepath):
 
 func _on_SaveButton_pressed():
 	_save()
+
+
+func _on_LanguageSelectionDialog_language_selected(language):
+	_add_language(language)
 
 
 func _save():
@@ -118,6 +150,13 @@ func load_file(filepath):
 		printerr("Unknown file format, cannot load ", filepath)
 		return
 	
+	_languages.clear()
+	for strid in _data:
+		var s = _data[strid]
+		for language in s.translations:
+			if _languages.find(language) == -1:
+				_languages.append(language)
+	
 	_translation_edits.clear()
 	
 	for i in _translation_tab_container.get_child_count():
@@ -126,24 +165,107 @@ func load_file(filepath):
 			child.queue_free()
 	
 	for language in _languages:
-		var edit = TextEdit.new()
-		var tab_index = _translation_tab_container.get_tab_count()
-		_translation_tab_container.add_child(edit)
-		_translation_tab_container.set_tab_title(tab_index, language)
-		_translation_edits[language] = edit
+		_create_translation_edit(language)
 		
 	refresh_list()
 	_current_file = filepath
+	_modified_languages.clear()
+
+
+func _create_translation_edit(language):
+	assert(not _translation_edits.has(language)) # boom
+	var edit = TextEdit.new()
+	edit.hide()
+	var tab_index = _translation_tab_container.get_tab_count()
+	_translation_tab_container.add_child(edit)
+	_translation_tab_container.set_tab_title(tab_index, language)
+	_translation_edits[language] = edit
+	edit.connect("text_changed", self, "_on_TranslationEdit_text_changed", [language])
+
+
+func _on_TranslationEdit_text_changed(language):
+	var edit = _translation_edits[language]
+	var selected_strids = _string_list.get_selected_items()
+	# TODO Don't show the editor if no strings are selected
+	if len(selected_strids) != 1:
+		return
+	#assert(len(selected_strids) == 1)
+	var strid = _string_list.get_item_text(selected_strids[0])
+	var prev_text = null
+	var s = _data[strid]
+	if s.translations.has(language):
+		prev_text = s.translations[language]
+	if prev_text != edit.text:
+		s.translations[language] = edit.text
+		_set_language_modified(language)
+
+
+func _on_NotesEdit_text_changed():
+	var selected_strids = _string_list.get_selected_items()
+	# TODO Don't show the editor if no strings are selected
+	if len(selected_strids) != 1:
+		return
+	#assert(len(selected_strids) == 1)
+	var strid = _string_list.get_item_text(selected_strids[0])
+	var s = _data[strid]
+	if s.comments != _notes_edit.text:
+		s.comments = _notes_edit.text
+		for language in _languages:
+			_set_language_modified(language)
+
+
+func _set_language_modified(language):
+	if _modified_languages.has(language):
+		return
+	_modified_languages[language] = true
+	_set_language_tab_title(language, str(language, "*"))
+
+
+func _set_language_unmodified(language):
+	if not _modified_languages.has(language):
+		return
+	_modified_languages.erase(language)
+	_set_language_tab_title(language, language)
+
+
+func _set_language_tab_title(language, title):
+	var page = _translation_edits[language]
+	for i in _translation_tab_container.get_child_count():
+		if _translation_tab_container.get_child(i) == page:
+			# TODO There seem to be a Godot bug, tab titles don't always update unless you click on them Oo
+			print("Set tab title ", title)
+			_translation_tab_container.set_tab_title(i, title)
+			return
+	# Something bad happened
+	assert(false)
+
+
+func get_current_language():
+	var page = _translation_tab_container.get_current_tab_control()
+	for language in _translation_edits:
+		if _translation_edits[language] == page:
+			return language
+	# Something bad happened
+	assert(false)
+	return null
 
 
 func save_file(filepath):
 	var ext = filepath.get_extension()
+	var saved_languages = []
+	
 	if ext == "po":
-		PoLoader.save_po_translations(filepath.get_base_dir(), _data, _languages)
+		var languages_to_save = _modified_languages.keys()
+		saved_languages = PoLoader.save_po_translations(filepath.get_base_dir(), _data, languages_to_save)
 	elif ext == "csv":
-		CsvLoader.save_csv_translation(_data)
+		saved_languages = CsvLoader.save_csv_translation(filepath, _data)
 	else:
 		printerr("Unknown file format, cannot save ", filepath)
+
+	for language in saved_languages:
+		_set_language_unmodified(language)
+
+	_current_file = filepath
 
 
 func refresh_list():
@@ -160,6 +282,7 @@ func _on_StringList_item_selected(index):
 	var s = _data[str_id]
 	for language in _languages:
 		var e = _translation_edits[language]
+		e.show()
 		if s.translations.has(language):
 			e.text = s.translations[language]
 		else:
@@ -196,10 +319,16 @@ func _on_StringEditionDialog_submitted(str_id, prev_str_id):
 func _validate_new_string_id(str_id):
 	if _data.has(str_id):
 		return "Already existing"
+	if str_id.strip_edges() != str_id:
+		return "Must not start or end with spaces"
+	for k in _data:
+		if k.nocasecmp_to(str_id) == 0:
+			return "Already existing with different case"
 	return true
 
 
 func add_new_string(strid):
+	print("Adding new string ", strid)
 	assert(not _data.has(strid))
 	var s = {
 		"translations": {},
@@ -218,4 +347,38 @@ func rename_string(old_strid, new_strid):
 		if _string_list.get_item_text(i) == old_strid:
 			_string_list.set_item_text(i, new_strid)
 			break
+
+
+func _add_language(language):
+	assert(_languages.find(language) == -1)
+	
+	_create_translation_edit(language)
+	_languages.append(language)
+	_set_language_modified(language)
+	
+	var menu_index = _file_menu.get_popup().get_item_index(MENU_FILE_REMOVE_LANGUAGE)
+	_file_menu.get_popup().set_item_disabled(menu_index, false)
+	
+	print("Added language ", language)
+
+
+func _remove_language(language):
+	assert(_languages.find(language) != -1)
+	
+	_set_language_unmodified(language)
+	var edit = _translation_edits[language]
+	edit.queue_free()
+	_translation_edits.erase(language)
+	_languages.erase(language)
+
+	if len(_languages) == 0:
+		var menu_index = _file_menu.get_popup().get_item_index(MENU_FILE_REMOVE_LANGUAGE)
+		_file_menu.get_popup().set_item_disabled(menu_index, true)
+
+	print("Removed language ", language)
+
+
+func _on_RemoveLanguageConfirmationDialog_confirmed():
+	var language = get_current_language()
+	_remove_language(language)
 
