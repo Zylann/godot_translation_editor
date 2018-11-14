@@ -23,6 +23,7 @@ onready var _string_list = get_node("VBoxContainer/Main/LeftPane/StringList")
 onready var _translation_tab_container = \
 	get_node("VBoxContainer/Main/RightPane/VSplitContainer/TranslationTabContainer")
 onready var _notes_edit = get_node("VBoxContainer/Main/RightPane/VSplitContainer/VBoxContainer/NotesEdit")
+onready var _status_label = get_node("VBoxContainer/StatusBar/Label")
 
 var _string_edit_dialog = null
 var _language_selection_dialog = null
@@ -96,6 +97,8 @@ func _ready():
 	_remove_language_confirmation_dialog.dialog_text = "Do you really want to remove this language? (There is no undo!)"
 	_remove_language_confirmation_dialog.connect("confirmed", self, "_on_RemoveLanguageConfirmationDialog_confirmed")
 	dialogs_parent.add_child(_remove_language_confirmation_dialog)
+	
+	_update_status_label()
 
 
 func configure_for_godot_integration(base_control):
@@ -168,11 +171,13 @@ func load_file(filepath):
 	
 	if ext == "po":
 		var valid_locales = Locales.get_all_locale_ids()
-		_data = PoLoader.load_po_translation(filepath.get_base_dir(), valid_locales)
+		_current_path = filepath.get_base_dir()
+		_data = PoLoader.load_po_translation(_current_path, valid_locales)
 		_current_format = FORMAT_GETTEXT
 		
 	elif ext == "csv":
 		_data = CsvLoader.load_csv_translation(filepath)
+		_current_path = filepath
 		_current_format = FORMAT_CSV
 		
 	else:
@@ -197,8 +202,17 @@ func load_file(filepath):
 		_create_translation_edit(language)
 		
 	refresh_list()
-	_current_path = filepath
 	_modified_languages.clear()
+	_update_status_label()
+
+
+func _update_status_label():
+	if _current_path == null:
+		_status_label.text = "No file loaded"
+	elif _current_format == FORMAT_CSV:
+		_status_label.text = _current_path
+	elif _current_format == FORMAT_GETTEXT:
+		_status_label.text = str(_current_path, " (Gettext translations folder)")
 
 
 func _create_translation_edit(language):
@@ -302,6 +316,7 @@ func save_file(path, format):
 	
 	_current_format = format
 	_current_path = path
+	_update_status_label()
 
 
 func refresh_list():
