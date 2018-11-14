@@ -32,6 +32,10 @@ func get_plugin_name():
 	return "Localization"
 
 
+func get_plugin_icon():
+	return preload("icons/icon_translation_editor.svg")
+
+
 func make_visible(visible):
 	_main_control.visible = visible
 
