@@ -106,7 +106,7 @@ static func _parse_msg(s):
 
 static func _parse_config(text):
 	var config = {}
-	var lines = text.split("\n")
+	var lines = text.split("\n", false)
 	print("Config lines: ", lines)
 	for line in lines:
 		var splits = line.split(":")
@@ -180,7 +180,14 @@ static func save_po_translations(folder_path, translations, languages_to_save):
 
 
 static func _write_msg(f, msgtype, msg):
-	var lines = msg.split("\n", false)
+	var lines = msg.split("\n")
+	# `split` removes the newlines, so we'll add them back.
+	# Empty lines may happen if the original text has multiple successsive line breaks.
+	# However, if the text ends with a newline, it will produce an empty string at the end,
+	# which we don't want. Repro: "\n".split("\n") produces ["", ""].
+	if len(lines) > 0 and lines[-1] == "":
+		lines.remove(len(lines) - 1)
+	
 	if len(lines) > 1:
 		for i in range(0, len(lines) - 1):
 			lines[i] = str(lines[i], "\n")
