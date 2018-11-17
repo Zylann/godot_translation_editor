@@ -1,8 +1,14 @@
 tool
 
+const STATE_NONE = 0
+const STATE_MSGID = 1
+const STATE_MSGSTR = 2
+
 static func load_po_translation(folder_path, valid_locales):
 	var all_strings = {}
+	var config = {}
 	
+	# TODO Get languages from configs, not from filenames
 	var languages = get_languages_in_folder(folder_path, valid_locales)
 	
 	if len(languages) == 0:
@@ -20,62 +26,73 @@ static func load_po_translation(folder_path, valid_locales):
 		
 		f.store_line("")
 		
+		var state = STATE_NONE
 		var comment = ""
 		var msgid = ""
 		var msgstr = ""
-		var last_is_msgid = false
 		var ids = []
 		var translations = []
 		var comments = []
+		# For debugging
+		var line_number = -1
 		
 		while not f.eof_reached():
 			var line = f.get_line().strip_edges()
+			line_number += 1
 			
 			if line != "" and line[0] == "#":
+				var comment_line = line.right(1).strip_edges()
 				if comment == "":
-					comment = str(comment, line.right(1))
+					comment = str(comment, comment_line)
 				else:
-					comment = str(comment, "\n", line.right(1))
+					comment = str(comment, "\n", comment_line)
 				continue
 			
 			var space_index = line.find(" ")
 			
 			if line.begins_with("msgid"):
 				msgid = _parse_msg(line.right(space_index))
-				last_is_msgid = true
+				state = STATE_MSGID
 				
 			elif line.begins_with("msgstr"):
 				msgstr = _parse_msg(line.right(space_index))
-				last_is_msgid = false
+				state = STATE_MSGSTR
 				
 			elif line.begins_with('"'):
-				if last_is_msgid:
-					msgid = str(msgid, _parse_msg(line))
-				else:
-					msgstr = str(msgstr, _parse_msg(line))
+				match state:
+					STATE_MSGID:
+						msgid = str(msgid, _parse_msg(line))
+					STATE_MSGSTR:
+						msgstr = str(msgstr, _parse_msg(line))
 				
-			elif line == "":
+			elif line == "" and state == STATE_MSGSTR:
 				var s = null
-				if not all_strings.has(msgid):
-					s = {
-						"translations": {},
-						"comments": ""
-					}
-					all_strings[msgid] = s
+				if msgid == "":
+					assert(len(msgstr) != 0)
+					config = _parse_config(msgstr)
 				else:
-					s = all_strings[msgid]
-				s.translations[language] = msgstr
-				if s.comments == "":
-					s.comments = comment
+					if not all_strings.has(msgid):
+						s = {
+							"translations": {},
+							"comments": ""
+						}
+						all_strings[msgid] = s
+					else:
+						s = all_strings[msgid]
+					s.translations[language] = msgstr
+					if s.comments == "":
+						s.comments = comment
 				
 				comment = ""
 				msgid = ""
 				msgstr = ""
+				state = STATE_NONE
 				
 			else:
 				print("Unhandled .po line: ", line)
 				continue
-				
+	
+	# TODO Return configs?
 	return all_strings
 
 
@@ -85,6 +102,17 @@ static func _parse_msg(s):
 	var end = s.rfind('"')
 	var msg = s.substr(1, end - 1)
 	return msg.c_unescape().replace('\\"', '"')
+
+
+static func _parse_config(text):
+	var config = {}
+	var lines = text.split("\n")
+	print("Config lines: ", lines)
+	for line in lines:
+		var splits = line.split(":")
+		print("Splits: ", splits)
+		config[splits[0]] = splits[1].strip_edges()
+	return config
 
 
 class _Sorter:
@@ -105,6 +133,23 @@ static func save_po_translations(folder_path, translations, languages_to_save):
 			printerr("Could not open file ", filepath, " for write, error ", err)
 			continue
 		
+		# TODO Take as argument
+		var config = {
+			"Project-Id-Version": ProjectSettings.get_setting("application/config/name"),
+			"MIME-Version": "1.0",
+			"Content-Type": "text/plain; charset=UTF-8",
+			"Content-Transfer-Encoding": "8bit",
+			"Language": language
+		}
+		
+		# Write config
+		var config_msg = ""
+		for k in config:
+			config_msg = str(config_msg, k, ": ", config[k], "\n")
+		_write_msg(f, "msgid", "")
+		_write_msg(f, "msgstr", config_msg)
+		f.store_line("")
+		
 		var items = []
 		
 		for id in translations:
@@ -114,7 +159,7 @@ static func save_po_translations(folder_path, translations, languages_to_save):
 			items.append([id, s.translations[language], s.comments])
 		
 		items.sort_custom(sorter, "sort")
-		
+				
 		for item in items:
 			
 			var comment = item[2]
@@ -135,10 +180,12 @@ static func save_po_translations(folder_path, translations, languages_to_save):
 
 
 static func _write_msg(f, msgtype, msg):
-	var lines = msg.split("\n")
+	var lines = msg.split("\n", false)
 	if len(lines) > 1:
 		for i in range(0, len(lines) - 1):
 			lines[i] = str(lines[i], "\n")
+	else:
+		lines = [msg]
 	
 	# This is just to avoid too long lines
 #	if len(lines) > 1:
