@@ -19,6 +19,7 @@ func _enter_tree():
 
 
 func _exit_tree():
+	print("Translation editor plugin Exit tree")
 	# The main control is not freed when the plugin is disabled
 	_main_control.queue_free()
 	_main_control = null

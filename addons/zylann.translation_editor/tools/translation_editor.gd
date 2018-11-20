@@ -6,6 +6,7 @@ const PoLoader = preload("po_loader.gd")
 const Locales = preload("locales.gd")
 const StringEditionDialog = preload("string_edition_dialog.tscn")
 const LanguageSelectionDialog = preload("language_selection_dialog.tscn")
+const ExtractorDialog = preload("extractor_dialog.tscn")
 
 const MENU_FILE_OPEN = 0
 const MENU_FILE_SAVE = 1
@@ -13,6 +14,7 @@ const MENU_FILE_SAVE_AS_CSV = 2
 const MENU_FILE_SAVE_AS_PO = 3
 const MENU_FILE_ADD_LANGUAGE = 4
 const MENU_FILE_REMOVE_LANGUAGE = 5
+const MENU_FILE_EXTRACT = 6
 
 const FORMAT_CSV = 0
 const FORMAT_GETTEXT = 1
@@ -28,12 +30,14 @@ onready var _status_label = get_node("VBoxContainer/StatusBar/Label")
 var _string_edit_dialog = null
 var _language_selection_dialog = null
 var _remove_language_confirmation_dialog = null
+var _extractor_dialog = null
 var _open_dialog = null
 var _save_file_dialog = null
 var _save_folder_dialog = null
 # This is set when integrated as a Godot plugin
 var _base_control = null
 var _translation_edits = {}
+var _dialogs_to_free_on_exit = []
 
 var _data = {}
 var _languages = []
@@ -54,6 +58,8 @@ func _ready():
 	_file_menu.get_popup().add_separator()
 	_file_menu.get_popup().add_item("Add language...", MENU_FILE_ADD_LANGUAGE)
 	_file_menu.get_popup().add_item("Remove language", MENU_FILE_REMOVE_LANGUAGE)
+	_file_menu.get_popup().add_separator()
+	_file_menu.get_popup().add_item("Extractor", MENU_FILE_EXTRACT)
 	_file_menu.get_popup().set_item_disabled(_file_menu.get_popup().get_item_index(MENU_FILE_REMOVE_LANGUAGE), true)
 	_file_menu.get_popup().connect("id_pressed", self, "_on_FileMenu_id_pressed")
 	
@@ -70,40 +76,62 @@ func _ready():
 
 
 func _setup_dialogs(dialogs_parent):
+	# If this fails, something wrong is happening with parenting of the main view
+	assert(_open_dialog == null)
+	
 	_open_dialog = FileDialog.new()
 	_open_dialog.window_title = "Open translations"
 	_open_dialog.add_filter("*.csv ; CSV files")
 	_open_dialog.add_filter("*.po ; Gettext files")
 	_open_dialog.mode = FileDialog.MODE_OPEN_FILE
 	_open_dialog.connect("file_selected", self, "_on_OpenDialog_file_selected")
-	dialogs_parent.add_child(_open_dialog)
+	_add_dialog(dialogs_parent, _open_dialog)
 
 	_save_file_dialog = FileDialog.new()
 	_save_file_dialog.window_title = "Save translations as CSV"
 	_save_file_dialog.add_filter("*.csv ; CSV files")
 	_save_file_dialog.mode = FileDialog.MODE_SAVE_FILE
 	_save_file_dialog.connect("file_selected", self, "_on_SaveFileDialog_file_selected")
-	dialogs_parent.add_child(_save_file_dialog)
+	_add_dialog(dialogs_parent, _save_file_dialog)
 
 	_save_folder_dialog = FileDialog.new()
 	_save_folder_dialog.window_title = "Save translations as gettext .po files"
 	_save_folder_dialog.mode = FileDialog.MODE_OPEN_DIR
 	_save_folder_dialog.connect("dir_selected", self, "_on_SaveFolderDialog_dir_selected")
-	dialogs_parent.add_child(_save_folder_dialog)
+	_add_dialog(dialogs_parent, _save_folder_dialog)
 	
 	_string_edit_dialog = StringEditionDialog.instance()
 	_string_edit_dialog.set_validator(funcref(self, "_validate_new_string_id"))
 	_string_edit_dialog.connect("submitted", self, "_on_StringEditionDialog_submitted")
-	dialogs_parent.add_child(_string_edit_dialog)
+	_add_dialog(dialogs_parent, _string_edit_dialog)
 	
 	_language_selection_dialog = LanguageSelectionDialog.instance()
 	_language_selection_dialog.connect("language_selected", self, "_on_LanguageSelectionDialog_language_selected")
-	dialogs_parent.add_child(_language_selection_dialog)
+	_add_dialog(dialogs_parent, _language_selection_dialog)
 	
 	_remove_language_confirmation_dialog = ConfirmationDialog.new()
 	_remove_language_confirmation_dialog.dialog_text = "Do you really want to remove this language? (There is no undo!)"
 	_remove_language_confirmation_dialog.connect("confirmed", self, "_on_RemoveLanguageConfirmationDialog_confirmed")
-	dialogs_parent.add_child(_remove_language_confirmation_dialog)
+	_add_dialog(dialogs_parent, _remove_language_confirmation_dialog)
+	
+	_extractor_dialog = ExtractorDialog.instance()
+	_extractor_dialog.set_registered_string_filter(funcref(self, "_is_string_registered"))
+	_extractor_dialog.connect("import_selected", self, "_on_ExtractorDialog_import_selected")
+	_add_dialog(dialogs_parent, _extractor_dialog)
+
+
+func _add_dialog(parent, dialog):
+	parent.add_child(dialog)
+	if parent != self:
+		_dialogs_to_free_on_exit.append(dialog)
+
+
+func _exit_tree():
+	# Free dialogs because in the editor they might not be child of the main view...
+	# Also this code runs in the edited scene view as a `tool` side-effect.
+	for dialog in _dialogs_to_free_on_exit:
+		dialog.queue_free()
+	_dialogs_to_free_on_exit.clear()
 
 
 func configure_for_godot_integration(base_control):
@@ -137,6 +165,9 @@ func _on_FileMenu_id_pressed(id):
 			var language = get_current_language()
 			_remove_language_confirmation_dialog.window_title = str("Remove language `", language, "`")
 			_remove_language_confirmation_dialog.popup_centered_minsize()
+		
+		MENU_FILE_EXTRACT:
+			_extractor_dialog.popup_centered_minsize()
 
 
 func _on_EditMenu_id_pressed(id):
@@ -400,6 +431,8 @@ func add_new_string(strid):
 	}
 	_data[strid] = s
 	_string_list.add_item(strid)
+	for language in _languages:
+		_set_language_modified(language)
 
 
 func rename_string(old_strid, new_strid):
@@ -445,3 +478,22 @@ func _remove_language(language):
 func _on_RemoveLanguageConfirmationDialog_confirmed():
 	var language = get_current_language()
 	_remove_language(language)
+
+
+# Currently used as callback for filtering
+func _is_string_registered(text):
+	if _data == null:
+		print("No data")
+		return false
+	return _data.has(text)
+
+
+func _on_ExtractorDialog_import_selected(results):
+	for fpath in results:
+		var strings = results[fpath]
+		for text in strings:
+			# Checking because there might be duplicates,
+			# strings can be found in multiple places
+			if not _is_string_registered(text):
+				add_new_string(text)
+

@@ -2,9 +2,8 @@
 
 [ext_resource path="res://addons/zylann.translation_editor/tools/string_edition_dialog.gd" type="Script" id=1]
 
-[node name="StringEditionDialog" type="WindowDialog"]
+[node name="StringEditionDialog" type="WindowDialog" index="0"]
 
-visible = false
 anchor_left = 0.0
 anchor_top = 0.0
 anchor_right = 0.0
@@ -20,7 +19,7 @@ mouse_default_cursor_shape = 0
 size_flags_horizontal = 1
 size_flags_vertical = 1
 popup_exclusive = false
-window_title = "New string"
+window_title = "New string ID"
 resizable = false
 script = ExtResource( 1 )
 
@@ -57,7 +56,6 @@ mouse_filter = 2
 mouse_default_cursor_shape = 0
 size_flags_horizontal = 1
 size_flags_vertical = 4
-text = "Already existing"
 percent_visible = 1.0
 lines_skipped = 0
 max_lines_visible = -1
@@ -139,6 +137,7 @@ mouse_filter = 0
 mouse_default_cursor_shape = 0
 size_flags_horizontal = 1
 size_flags_vertical = 1
+disabled = true
 toggle_mode = false
 enabled_focus_mode = 2
 shortcut = null
