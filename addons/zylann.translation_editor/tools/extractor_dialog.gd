@@ -6,9 +6,10 @@ const Extractor = preload("extractor.gd")
 signal import_selected(strings)
 
 onready var _root_path_edit = get_node("VBoxContainer/HBoxContainer/RootPathEdit")
-onready var _summary_label = get_node("VBoxContainer/SummaryLabel")
+onready var _excluded_dirs_edit = get_node("VBoxContainer/Options/ExcludedDirsEdit")
+onready var _summary_label = get_node("VBoxContainer/StatusBar/SummaryLabel")
 onready var _results_list = get_node("VBoxContainer/Results")
-onready var _progress_bar = get_node("VBoxContainer/ProgressBar")
+onready var _progress_bar = get_node("VBoxContainer/StatusBar/ProgressBar")
 onready var _extract_button = get_node("VBoxContainer/Buttons/ExtractButton")
 onready var _import_button = get_node("VBoxContainer/Buttons/ImportButton")
 
@@ -48,18 +49,21 @@ func _on_ExtractButton_pressed():
 		printerr("Directory `", root, "` does not exist")
 		return
 	
-	_extractor = Extractor.new()
-	_extractor.connect("finished", self, "_on_Extractor_finished")
-	#_extractor.extract("res://", ["addons"])
-	_extractor.extract("res://", [])
+	var excluded_dirs = _excluded_dirs_edit.text.split(";", false)
+	for i in len(excluded_dirs):
+		excluded_dirs[i] = excluded_dirs[i].strip_edges()
 	
-	# TODO Progress reporting
-	_progress_bar.value = 50
+	_extractor = Extractor.new()
+	_extractor.connect("progress_reported", self, "_on_Extractor_progress_reported")
+	_extractor.connect("finished", self, "_on_Extractor_finished")
+	_extractor.extract(root, excluded_dirs)
+	
+	_progress_bar.value = 0
+	_progress_bar.show()
+	_summary_label.text = ""
 	
 	_extract_button.disabled = true
 	_import_button.disabled = true
-	
-	_summary_label.text = "Extracting..."
 
 
 func _on_ImportButton_pressed():
@@ -73,9 +77,14 @@ func _on_CancelButton_pressed():
 	hide()
 
 
+func _on_Extractor_progress_reported(ratio):
+	_progress_bar.value = 100.0 * ratio
+
+
 func _on_Extractor_finished(results):
 	print("Extractor finished")
 	_progress_bar.value = 100
+	_progress_bar.hide()
 	
 	_results_list.clear()
 	

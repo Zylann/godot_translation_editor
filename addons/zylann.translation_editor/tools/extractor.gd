@@ -3,11 +3,13 @@ const STATE_SEARCHING = 0
 const STATE_READING_TEXT = 1
 
 signal finished(results)
+signal progress_reported(ratio)
 
 var _strings = {}
 var _thread = null
 var _time_before = 0.0
 var _ignored_paths = {}
+var _paths = []
 
 
 func extract(root, ignored_paths=[]):
@@ -23,8 +25,29 @@ func extract(root, ignored_paths=[]):
 
 
 func _extract(root):
-	_walk(root, funcref(self, "_process_file"), funcref(self, "_filter"))
+	_walk(root, funcref(self, "_index_file"), funcref(self, "_filter"))
+	
+	for i in len(_paths):
+		var fpath = _paths[i]
+		var f = File.new()
+		var err = f.open(fpath, File.READ)
+		if err != OK:
+			printerr("Could not open '", fpath, "', for read, error ", err)
+			continue
+		var ext = fpath.get_extension()
+		match ext:
+			"tscn":
+				_process_tscn(f, fpath)
+			"gd":
+				_process_gd(f, fpath)
+		f.close()
+		call_deferred("_report_progress", float(i) / float(len(_paths)))
+	
 	call_deferred("_finished")
+
+
+func _report_progress(ratio):
+	emit_signal("progress_reported", ratio)
 
 
 func _finished():
@@ -38,27 +61,17 @@ func _finished():
 func _filter(path):
 	if path in _ignored_paths:
 		return false
+	if path[0] == ".":
+		return false
 	return true
 
 
-func _process_file(fpath):
+func _index_file(fpath):
 	var ext = fpath.get_extension()
 	#print("File ", fpath)
-	
 	if ext != "tscn" and ext != "gd":
 		return
-	
-	var f = File.new()
-	var err = f.open(fpath, File.READ)
-	if err != OK:
-		printerr("Could not open '", fpath, "', for read, error ", err)
-		return
-	
-	match ext:
-		"tscn":
-			_process_tscn(f, fpath)
-		"gd":
-			_process_gd(f, fpath)
+	_paths.append(fpath)
 
 
 func _process_tscn(f, fpath):
