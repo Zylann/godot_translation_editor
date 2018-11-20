@@ -75,6 +75,7 @@ func _index_file(fpath):
 
 
 func _process_tscn(f, fpath):
+	# TOOD Also search for "window_title" and "dialog_text"
 	var pattern = "text ="
 	var text = ""
 	var state = STATE_SEARCHING

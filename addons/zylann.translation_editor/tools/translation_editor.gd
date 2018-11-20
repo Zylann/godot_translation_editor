@@ -30,6 +30,7 @@ onready var _status_label = get_node("VBoxContainer/StatusBar/Label")
 var _string_edit_dialog = null
 var _language_selection_dialog = null
 var _remove_language_confirmation_dialog = null
+var _remove_string_confirmation_dialog = null
 var _extractor_dialog = null
 var _open_dialog = null
 var _save_file_dialog = null
@@ -65,17 +66,13 @@ func _ready():
 	
 	_edit_menu.get_popup().connect("id_pressed", self, "_on_EditMenu_id_pressed")
 	
-	var dialogs_parent = self
-	if _base_control != null:
-		dialogs_parent = _base_control
-	
 	# In the editor the parent is still busy setting up children...
-	call_deferred("_setup_dialogs", dialogs_parent)
+	call_deferred("_setup_dialogs")
 	
 	_update_status_label()
 
 
-func _setup_dialogs(dialogs_parent):
+func _setup_dialogs():
 	# If this fails, something wrong is happening with parenting of the main view
 	assert(_open_dialog == null)
 	
@@ -85,45 +82,53 @@ func _setup_dialogs(dialogs_parent):
 	_open_dialog.add_filter("*.po ; Gettext files")
 	_open_dialog.mode = FileDialog.MODE_OPEN_FILE
 	_open_dialog.connect("file_selected", self, "_on_OpenDialog_file_selected")
-	_add_dialog(dialogs_parent, _open_dialog)
+	_add_dialog(_open_dialog)
 
 	_save_file_dialog = FileDialog.new()
 	_save_file_dialog.window_title = "Save translations as CSV"
 	_save_file_dialog.add_filter("*.csv ; CSV files")
 	_save_file_dialog.mode = FileDialog.MODE_SAVE_FILE
 	_save_file_dialog.connect("file_selected", self, "_on_SaveFileDialog_file_selected")
-	_add_dialog(dialogs_parent, _save_file_dialog)
+	_add_dialog(_save_file_dialog)
 
 	_save_folder_dialog = FileDialog.new()
 	_save_folder_dialog.window_title = "Save translations as gettext .po files"
 	_save_folder_dialog.mode = FileDialog.MODE_OPEN_DIR
 	_save_folder_dialog.connect("dir_selected", self, "_on_SaveFolderDialog_dir_selected")
-	_add_dialog(dialogs_parent, _save_folder_dialog)
+	_add_dialog(_save_folder_dialog)
 	
 	_string_edit_dialog = StringEditionDialog.instance()
 	_string_edit_dialog.set_validator(funcref(self, "_validate_new_string_id"))
 	_string_edit_dialog.connect("submitted", self, "_on_StringEditionDialog_submitted")
-	_add_dialog(dialogs_parent, _string_edit_dialog)
+	_add_dialog(_string_edit_dialog)
 	
 	_language_selection_dialog = LanguageSelectionDialog.instance()
 	_language_selection_dialog.connect("language_selected", self, "_on_LanguageSelectionDialog_language_selected")
-	_add_dialog(dialogs_parent, _language_selection_dialog)
+	_add_dialog(_language_selection_dialog)
 	
 	_remove_language_confirmation_dialog = ConfirmationDialog.new()
 	_remove_language_confirmation_dialog.dialog_text = "Do you really want to remove this language? (There is no undo!)"
 	_remove_language_confirmation_dialog.connect("confirmed", self, "_on_RemoveLanguageConfirmationDialog_confirmed")
-	_add_dialog(dialogs_parent, _remove_language_confirmation_dialog)
+	_add_dialog(_remove_language_confirmation_dialog)
 	
 	_extractor_dialog = ExtractorDialog.instance()
 	_extractor_dialog.set_registered_string_filter(funcref(self, "_is_string_registered"))
 	_extractor_dialog.connect("import_selected", self, "_on_ExtractorDialog_import_selected")
-	_add_dialog(dialogs_parent, _extractor_dialog)
+	_add_dialog(_extractor_dialog)
+	
+	_remove_string_confirmation_dialog = ConfirmationDialog.new()
+	_remove_string_confirmation_dialog.dialog_text = \
+		"Do you really want to remove this string and all its translations? (There is no undo)"
+	_remove_string_confirmation_dialog.connect("confirmed", self, "_on_RemoveStringConfirmationDialog_confirmed")
+	_add_dialog(_remove_string_confirmation_dialog)
 
 
-func _add_dialog(parent, dialog):
-	parent.add_child(dialog)
-	if parent != self:
+func _add_dialog(dialog):
+	if _base_control != null:
+		_base_control.add_child(dialog)
 		_dialogs_to_free_on_exit.append(dialog)
+	else:
+		add_child(dialog)
 
 
 func _exit_tree():
@@ -391,8 +396,24 @@ func _on_AddButton_pressed():
 
 
 func _on_RemoveButton_pressed():
-	# TODO Remove string with confirmation
-	pass
+	var selected_items = _string_list.get_selected_items()
+	if len(selected_items) == 0:
+		return
+	var str_id = _string_list.get_item_text(selected_items[0])
+	_remove_string_confirmation_dialog.window_title = str("Remove `", str_id, "`")
+	_remove_string_confirmation_dialog.popup_centered_minsize()
+
+
+func _on_RemoveStringConfirmationDialog_confirmed():
+	var selected_items = _string_list.get_selected_items()
+	if len(selected_items) == 0:
+		printerr("No selected string??")
+		return
+	var strid = _string_list.get_item_text(selected_items[0])
+	_string_list.remove_item(selected_items[0])
+	_data.erase(strid)
+	for language in _languages:
+		_set_language_modified(language)
 
 
 func _on_RenameButton_pressed():
@@ -480,7 +501,7 @@ func _on_RemoveLanguageConfirmationDialog_confirmed():
 	_remove_language(language)
 
 
-# Currently used as callback for filtering
+# Used as callback for filtering
 func _is_string_registered(text):
 	if _data == null:
 		print("No data")
