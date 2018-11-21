@@ -521,13 +521,9 @@ func _is_string_registered(text):
 
 
 func _on_ExtractorDialog_import_selected(results):
-	for fpath in results:
-		var strings = results[fpath]
-		for text in strings:
-			# Checking because there might be duplicates,
-			# strings can be found in multiple places
-			if not _is_string_registered(text):
-				add_new_string(text)
+	for text in results:
+		if not _is_string_registered(text):
+			add_new_string(text)
 
 
 func _on_Search_text_changed(search_text):

@@ -2,6 +2,7 @@
 const STATE_SEARCHING = 0
 const STATE_READING_TEXT = 1
 
+# results: { string => { fpath => line number } }
 signal finished(results)
 signal progress_reported(ratio)
 
@@ -181,9 +182,9 @@ static func find_unescaped_quote(s, from):
 
 
 func _add_string(file, line_number, text):
-	if not _strings.has(file):
-		_strings[file] = {}
-	_strings[file][text] = line_number
+	if not _strings.has(text):
+		_strings[text] = {}
+	_strings[text][file] = line_number
 
 
 static func _walk(folder_path, file_action, filter):

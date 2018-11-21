@@ -14,6 +14,7 @@ onready var _extract_button = get_node("VBoxContainer/Buttons/ExtractButton")
 onready var _import_button = get_node("VBoxContainer/Buttons/ImportButton")
 
 var _extractor = null
+# { string => { fpath => line number } }
 var _results = {}
 var _registered_string_filter = null
 
@@ -94,38 +95,27 @@ func _on_Extractor_finished(results):
 	# TODO We might actually want to not filter, in order to update location comments
 	# Filter results
 	if _registered_string_filter != null:
-		
-		var fpaths = results.keys()
-		for fpath in fpaths:
-			var strings_dict = results[fpath]
-			
-			var strings = strings_dict.keys()
-			for text in strings:
-				if _registered_string_filter.call_func(text):
-					strings_dict.erase(text)
-					registered_set[text] = true
-			
-			if len(strings_dict) == 0:
-				results.erase(fpath)
+		var texts = results.keys()
+		for text in texts:
+			if _registered_string_filter.call_func(text):
+				results.erase(text)
+				registered_set[text] = true
 	
 	# Root
 	_results_list.create_item()
 	
-	for fpath in results:
-		#print(fpath)
-		var strings = results[fpath]
+	for text in results:
+		var item = _results_list.create_item()
+		item.set_text(0, text)
+		item.collapsed = true
+		new_set[text] = true
 		
-		for text in strings:
-			var line_number = strings[text]
-			#print("    ", line_number, ": `", text, "`")
+		var files = results[text]
+		for file in files:
+			var line_number = files[file]
 			
-			var item = _results_list.create_item()
-			item.set_text(0, text)
-			item.set_text(1, str(fpath, ": ", line_number))
-			#item.set_tooltip(
-			item.set_metadata(1, fpath)
-			
-			new_set[text] = true
+			var file_item = _results_list.create_item(item)
+			file_item.set_text(0, str(file, ": ", line_number))
 	
 	_results = results
 	_extractor = null
