@@ -21,6 +21,8 @@ const FORMAT_GETTEXT = 1
 
 onready var _file_menu = get_node("VBoxContainer/MenuBar/FileMenu")
 onready var _edit_menu = get_node("VBoxContainer/MenuBar/EditMenu")
+onready var _search_edit = get_node("VBoxContainer/Main/LeftPane/Search/Search")
+onready var _clear_search_button = get_node("VBoxContainer/Main/LeftPane/Search/ClearSearch")
 onready var _string_list = get_node("VBoxContainer/Main/LeftPane/StringList")
 onready var _translation_tab_container = \
 	get_node("VBoxContainer/Main/RightPane/VSplitContainer/TranslationTabContainer")
@@ -249,7 +251,7 @@ func load_file(filepath):
 	
 	for language in _languages:
 		_create_translation_edit(language)
-		
+	
 	refresh_list()
 	_modified_languages.clear()
 	_update_status_label()
@@ -369,12 +371,21 @@ func save_file(path, format):
 
 
 func refresh_list():
+	var search_text = _search_edit.text.strip_edges()
+	
+	var sorted_strids = []
+	if search_text == "":
+		sorted_strids = _data.keys()
+	else:
+		for strid in _data.keys():
+			if strid.find(search_text) != -1:
+				sorted_strids.append(strid)
+	
+	sorted_strids.sort()
+	
 	_string_list.clear()
-	var ordered_ids = _data.keys()
-	ordered_ids.sort()
-	for id in ordered_ids:
-		#var i = _string_list.get_item_count()
-		_string_list.add_item(id)
+	for strid in sorted_strids:
+		_string_list.add_item(strid)
 
 
 func _on_StringList_item_selected(index):
@@ -518,3 +529,11 @@ func _on_ExtractorDialog_import_selected(results):
 			if not _is_string_registered(text):
 				add_new_string(text)
 
+
+func _on_Search_text_changed(search_text):
+	_clear_search_button.visible = (search_text != "")
+	refresh_list()
+
+
+func _on_ClearSearch_pressed():
+	_search_edit.text = ""
