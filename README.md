@@ -1,7 +1,7 @@
 Translation editor for Godot Engine
 =====================================
 
-This is an editor plugin to edit translation files from inside Godot Engine. It supports .csv and .po files, although gettext support is limited to what Godot can handle.
+This is an editor plugin to edit translation files from inside Godot Engine. It supports .csv and .po files, although gettext support is limited to what Godot can handle. It can extract strings from your project automatically and adds them to a list for you to translate.
 It can also be used as a standalone editor if `translation_editor.tscn` is run or exported as main scene.
 
 ![screenshot2](https://user-images.githubusercontent.com/1311555/48521813-14559600-e86e-11e8-8cf8-95580f97baf0.png)
