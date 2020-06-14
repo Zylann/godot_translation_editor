@@ -109,17 +109,25 @@ func _process_tscn(f, fpath):
 			
 			STATE_SEARCHING:
 				var i = line.find(pattern)
+				
 				if i != -1:
 					var begin_quote_index = line.find('"', i + len(pattern))
 					if begin_quote_index == -1:
-						printerr("Could not find begin quote after text property, in ", fpath, " line ", line_number)
+						printerr("Could not find begin quote after text property, in ",
+							fpath, " line ", line_number)
 						continue
+						
 					var end_quote_index = line.rfind('"')
-					if end_quote_index != -1 and end_quote_index > begin_quote_index and line[end_quote_index - 1] != '\\':
-						text = line.substr(begin_quote_index + 1, end_quote_index - begin_quote_index - 1)
+					
+					if end_quote_index != -1 and end_quote_index > begin_quote_index \
+					and line[end_quote_index - 1] != '\\':
+						text = line.substr(begin_quote_index + 1, 
+							end_quote_index - begin_quote_index - 1)
+							
 						if text != "":
 							_add_string(fpath, line_number, text)
 						text = ""
+						
 					else:
 						# The text may be multiline
 						text = str(line.right(begin_quote_index + 1), "\n")

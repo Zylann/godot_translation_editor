@@ -26,7 +26,8 @@ onready var _clear_search_button = get_node("VBoxContainer/Main/LeftPane/Search/
 onready var _string_list = get_node("VBoxContainer/Main/LeftPane/StringList")
 onready var _translation_tab_container = \
 	get_node("VBoxContainer/Main/RightPane/VSplitContainer/TranslationTabContainer")
-onready var _notes_edit = get_node("VBoxContainer/Main/RightPane/VSplitContainer/VBoxContainer/NotesEdit")
+onready var _notes_edit = \
+	get_node("VBoxContainer/Main/RightPane/VSplitContainer/VBoxContainer/NotesEdit")
 onready var _status_label = get_node("VBoxContainer/StatusBar/Label")
 
 var _string_edit_dialog = null
@@ -105,12 +106,15 @@ func _setup_dialogs():
 	_add_dialog(_string_edit_dialog)
 	
 	_language_selection_dialog = LanguageSelectionDialog.instance()
-	_language_selection_dialog.connect("language_selected", self, "_on_LanguageSelectionDialog_language_selected")
+	_language_selection_dialog.connect(
+		"language_selected", self, "_on_LanguageSelectionDialog_language_selected")
 	_add_dialog(_language_selection_dialog)
 	
 	_remove_language_confirmation_dialog = ConfirmationDialog.new()
-	_remove_language_confirmation_dialog.dialog_text = "Do you really want to remove this language? (There is no undo!)"
-	_remove_language_confirmation_dialog.connect("confirmed", self, "_on_RemoveLanguageConfirmationDialog_confirmed")
+	_remove_language_confirmation_dialog.dialog_text = \
+		"Do you really want to remove this language? (There is no undo!)"
+	_remove_language_confirmation_dialog.connect(
+		"confirmed", self, "_on_RemoveLanguageConfirmationDialog_confirmed")
 	_add_dialog(_remove_language_confirmation_dialog)
 	
 	_extractor_dialog = ExtractorDialog.instance()
@@ -121,7 +125,8 @@ func _setup_dialogs():
 	_remove_string_confirmation_dialog = ConfirmationDialog.new()
 	_remove_string_confirmation_dialog.dialog_text = \
 		"Do you really want to remove this string and all its translations? (There is no undo)"
-	_remove_string_confirmation_dialog.connect("confirmed", self, "_on_RemoveStringConfirmationDialog_confirmed")
+	_remove_string_confirmation_dialog.connect(
+		"confirmed", self, "_on_RemoveStringConfirmationDialog_confirmed")
 	_add_dialog(_remove_string_confirmation_dialog)
 
 
@@ -170,7 +175,8 @@ func _on_FileMenu_id_pressed(id):
 			
 		MENU_FILE_REMOVE_LANGUAGE:
 			var language = get_current_language()
-			_remove_language_confirmation_dialog.window_title = str("Remove language `", language, "`")
+			_remove_language_confirmation_dialog.window_title = \
+				str("Remove language `", language, "`")
 			_remove_language_confirmation_dialog.popup_centered_minsize()
 		
 		MENU_FILE_EXTRACT:
