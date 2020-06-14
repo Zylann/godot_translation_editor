@@ -96,7 +96,11 @@ func _index_file(fpath: String):
 
 func _process_tscn(f: File, fpath: String):
 	# TOOD Also search for "window_title" and "dialog_text"
-	var pattern := "text ="
+	var patterns := [
+		"text =",
+		"window_title =",
+		"dialog_text ="
+	]
 	var text := ""
 	var state := STATE_SEARCHING
 	var line_number := 0
@@ -110,31 +114,39 @@ func _process_tscn(f: File, fpath: String):
 		
 		match state:
 			STATE_SEARCHING:
-				var i := line.find(pattern)
+				var pattern : String
+				var i : int
+				for p in patterns:
+					i = line.find(p)
+					if i != -1:
+						pattern = p
+						break
 				
-				if i != -1:
-					var begin_quote_index := line.find('"', i + len(pattern))
-					if begin_quote_index == -1:
-						_logger.error(
-							"Could not find begin quote after text property, in {0}, line {1}" \
-							.format([fpath, line_number]))
-						continue
-						
-					var end_quote_index := line.rfind('"')
+				if i == -1:
+					continue
+				
+				var begin_quote_index := line.find('"', i + len(pattern))
+				if begin_quote_index == -1:
+					_logger.error(
+						"Could not find begin quote after text property, in {0}, line {1}" \
+						.format([fpath, line_number]))
+					continue
 					
-					if end_quote_index != -1 and end_quote_index > begin_quote_index \
-					and line[end_quote_index - 1] != '\\':
-						text = line.substr(begin_quote_index + 1, 
-							end_quote_index - begin_quote_index - 1)
-							
-						if text != "":
-							_add_string(fpath, line_number, text)
-						text = ""
+				var end_quote_index := line.rfind('"')
+				
+				if end_quote_index != -1 and end_quote_index > begin_quote_index \
+				and line[end_quote_index - 1] != '\\':
+					text = line.substr(begin_quote_index + 1, 
+						end_quote_index - begin_quote_index - 1)
 						
-					else:
-						# The text may be multiline
-						text = str(line.right(begin_quote_index + 1), "\n")
-						state = STATE_READING_TEXT
+					if text != "":
+						_add_string(fpath, line_number, text)
+					text = ""
+					
+				else:
+					# The text may be multiline
+					text = str(line.right(begin_quote_index + 1), "\n")
+					state = STATE_READING_TEXT
 			
 			STATE_READING_TEXT:
 				var end_quote_index = line.rfind('"')
