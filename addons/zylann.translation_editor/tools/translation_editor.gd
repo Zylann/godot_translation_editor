@@ -50,6 +50,7 @@ var _translation_edits := {}
 var _dialogs_to_free_on_exit := []
 var _logger = Logger.get_for(self)
 
+# {stringID => {language => text}}
 var _data := {}
 var _languages := []
 var _current_path := ""
@@ -477,9 +478,12 @@ func add_new_string(strid: String):
 		"comments": ""
 	}
 	_data[strid] = s
-	_string_list.add_item(strid)
+
 	for language in _languages:
 		_set_language_modified(language)
+		
+	# Update UI
+	_string_list.add_item(strid)
 
 
 func rename_string(old_strid: String, new_strid: String):
@@ -487,6 +491,11 @@ func rename_string(old_strid: String, new_strid: String):
 	var s : Dictionary = _data[old_strid]
 	_data.erase(old_strid)
 	_data[new_strid] = s
+
+	for language in _languages:
+		_set_language_modified(language)
+
+	# Update UI
 	for i in _string_list.get_item_count():
 		if _string_list.get_item_text(i) == old_strid:
 			_string_list.set_item_text(i, new_strid)
