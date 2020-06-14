@@ -6,6 +6,8 @@ const STATE_READING_TEXT = 1
 signal finished(results)
 signal progress_reported(ratio)
 
+# TODO Do we want to know if a text is found multiple times in the same file?
+# text => { file => line number }
 var _strings = {}
 var _thread = null
 var _time_before = 0.0
@@ -13,7 +15,19 @@ var _ignored_paths = {}
 var _paths = []
 
 
+func extract_async(root, ignored_paths=[]):
+	_prepare(root, ignored_paths)
+	_thread = Thread.new()
+	_thread.start(self, "_extract_thread_func", root)
+
+
 func extract(root, ignored_paths=[]):
+	_prepare(root, ignored_paths)
+	_extract(root)
+	return _strings
+
+
+func _prepare(root, ignored_paths):
 	_time_before = OS.get_ticks_msec()
 	assert(_thread == null)
 	
@@ -21,8 +35,7 @@ func extract(root, ignored_paths=[]):
 	for p in ignored_paths:
 		_ignored_paths[root.plus_file(p)] = true
 	
-	_thread = Thread.new()
-	_thread.start(self, "_extract", root)
+	_strings.clear()
 
 
 func _extract(root):
@@ -44,6 +57,9 @@ func _extract(root):
 		f.close()
 		call_deferred("_report_progress", float(i) / float(len(_paths)))
 	
+	
+func _extract_thread_func(root):
+	_extract(root)
 	call_deferred("_finished")
 
 
@@ -121,7 +137,6 @@ func _process_tscn(f, fpath):
 
 
 func _process_gd(f, fpath):
-	var pattern = "tr("
 	var text = ""
 	var line_number = 0
 	
@@ -136,13 +151,19 @@ func _process_gd(f, fpath):
 		var search_index = 0
 		var counter = 0
 		while true:
+			var pattern = "tr("
 			var call_index = line.find(pattern, search_index)
 			if call_index == -1:
-				break
+				pattern = "TranslationServer.translate("
+				call_index = line.find(pattern, search_index)
+				if call_index == -1:
+					break
+				
 			if call_index != 0:
 				if line.substr(call_index - 1, 3).is_valid_identifier():
-					# not a tr( call
-					break
+					# not a tr( call, skip
+					search_index = call_index + len(pattern)
+					continue
 				if line[call_index - 1] == '"':
 					break
 				# TODO There may be more cases to handle
@@ -168,6 +189,7 @@ func _process_gd(f, fpath):
 			search_index = end_bracket_index
 			
 			counter += 1
+			# If that fails it means we spent 100 iterations in the same line, that's suspicious
 			assert(counter < 100)
 
 

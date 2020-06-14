@@ -57,7 +57,7 @@ func _on_ExtractButton_pressed():
 	_extractor = Extractor.new()
 	_extractor.connect("progress_reported", self, "_on_Extractor_progress_reported")
 	_extractor.connect("finished", self, "_on_Extractor_finished")
-	_extractor.extract(root, excluded_dirs)
+	_extractor.extract_async(root, excluded_dirs)
 	
 	_progress_bar.value = 0
 	_progress_bar.show()
