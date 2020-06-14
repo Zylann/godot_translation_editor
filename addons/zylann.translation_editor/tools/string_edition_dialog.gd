@@ -3,9 +3,9 @@ extends WindowDialog
 
 signal submitted(str_id, prev_str_id)
 
-onready var _line_edit = get_node("VBoxContainer/LineEdit")
-onready var _ok_button = get_node("VBoxContainer/Buttons/OkButton")
-onready var _hint_label = get_node("VBoxContainer/HintLabel")
+onready var _line_edit = $VBoxContainer/LineEdit
+onready var _ok_button = $VBoxContainer/Buttons/OkButton
+onready var _hint_label = $VBoxContainer/HintLabel
 
 var _validator_func = null
 var _prev_str_id = null

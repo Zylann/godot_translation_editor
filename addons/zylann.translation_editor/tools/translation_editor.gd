@@ -19,16 +19,15 @@ const MENU_FILE_EXTRACT = 6
 const FORMAT_CSV = 0
 const FORMAT_GETTEXT = 1
 
-onready var _file_menu = get_node("VBoxContainer/MenuBar/FileMenu")
-onready var _edit_menu = get_node("VBoxContainer/MenuBar/EditMenu")
-onready var _search_edit = get_node("VBoxContainer/Main/LeftPane/Search/Search")
-onready var _clear_search_button = get_node("VBoxContainer/Main/LeftPane/Search/ClearSearch")
-onready var _string_list = get_node("VBoxContainer/Main/LeftPane/StringList")
+onready var _file_menu = $VBoxContainer/MenuBar/FileMenu
+onready var _edit_menu = $VBoxContainer/MenuBar/EditMenu
+onready var _search_edit = $VBoxContainer/Main/LeftPane/Search/Search
+onready var _clear_search_button = $VBoxContainer/Main/LeftPane/Search/ClearSearch
+onready var _string_list = $VBoxContainer/Main/LeftPane/StringList
 onready var _translation_tab_container = \
-	get_node("VBoxContainer/Main/RightPane/VSplitContainer/TranslationTabContainer")
-onready var _notes_edit = \
-	get_node("VBoxContainer/Main/RightPane/VSplitContainer/VBoxContainer/NotesEdit")
-onready var _status_label = get_node("VBoxContainer/StatusBar/Label")
+	$VBoxContainer/Main/RightPane/VSplitContainer/TranslationTabContainer
+onready var _notes_edit = $VBoxContainer/Main/RightPane/VSplitContainer/VBoxContainer/NotesEdit
+onready var _status_label = $VBoxContainer/StatusBar/Label
 
 var _string_edit_dialog = null
 var _language_selection_dialog = null
@@ -64,7 +63,8 @@ func _ready():
 	_file_menu.get_popup().add_item("Remove language", MENU_FILE_REMOVE_LANGUAGE)
 	_file_menu.get_popup().add_separator()
 	_file_menu.get_popup().add_item("Extractor", MENU_FILE_EXTRACT)
-	_file_menu.get_popup().set_item_disabled(_file_menu.get_popup().get_item_index(MENU_FILE_REMOVE_LANGUAGE), true)
+	_file_menu.get_popup().set_item_disabled(
+		_file_menu.get_popup().get_item_index(MENU_FILE_REMOVE_LANGUAGE), true)
 	_file_menu.get_popup().connect("id_pressed", self, "_on_FileMenu_id_pressed")
 	
 	_edit_menu.get_popup().connect("id_pressed", self, "_on_EditMenu_id_pressed")

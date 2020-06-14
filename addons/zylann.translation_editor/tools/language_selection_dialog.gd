@@ -5,9 +5,9 @@ const Locales = preload("locales.gd")
 
 signal language_selected(language)
 
-onready var _filter_edit = get_node("VBoxContainer/FilterEdit")
-onready var _languages_list = get_node("VBoxContainer/LanguagesList")
-onready var _ok_button = get_node("VBoxContainer/Buttons/OkButton")
+onready var _filter_edit = $VBoxContainer/FilterEdit
+onready var _languages_list = $VBoxContainer/LanguagesList
+onready var _ok_button = $VBoxContainer/Buttons/OkButton
 
 var _hidden_locales = []
 

@@ -5,13 +5,13 @@ const Extractor = preload("extractor.gd")
 
 signal import_selected(strings)
 
-onready var _root_path_edit = get_node("VBoxContainer/HBoxContainer/RootPathEdit")
-onready var _excluded_dirs_edit = get_node("VBoxContainer/Options/ExcludedDirsEdit")
-onready var _summary_label = get_node("VBoxContainer/StatusBar/SummaryLabel")
-onready var _results_list = get_node("VBoxContainer/Results")
-onready var _progress_bar = get_node("VBoxContainer/StatusBar/ProgressBar")
-onready var _extract_button = get_node("VBoxContainer/Buttons/ExtractButton")
-onready var _import_button = get_node("VBoxContainer/Buttons/ImportButton")
+onready var _root_path_edit = $VBoxContainer/HBoxContainer/RootPathEdit
+onready var _excluded_dirs_edit = $VBoxContainer/Options/ExcludedDirsEdit
+onready var _summary_label = $VBoxContainer/StatusBar/SummaryLabel
+onready var _results_list = $VBoxContainer/Results
+onready var _progress_bar = $VBoxContainer/StatusBar/ProgressBar
+onready var _extract_button = $VBoxContainer/Buttons/ExtractButton
+onready var _import_button = $VBoxContainer/Buttons/ImportButton
 
 var _extractor = null
 # { string => { fpath => line number } }
