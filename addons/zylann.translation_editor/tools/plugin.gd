@@ -3,12 +3,14 @@ extends EditorPlugin
 
 const TranslationEditor = preload("./translation_editor.gd")
 const TranslationEditorScene = preload("./translation_editor.tscn")
+const Logger = preload("./util/logger.gd")
 
 var _main_control : TranslationEditor = null
+var _logger = Logger.get_for(self)
 
 
 func _enter_tree():
-	print("Translation editor plugin Enter tree")
+	_logger.debug("Translation editor plugin Enter tree")
 	
 	var editor_interface := get_editor_interface()
 	var base_control := editor_interface.get_base_control()
@@ -20,7 +22,7 @@ func _enter_tree():
 
 
 func _exit_tree():
-	print("Translation editor plugin Exit tree")
+	_logger.debug("Translation editor plugin Exit tree")
 	# The main control is not freed when the plugin is disabled
 	_main_control.queue_free()
 	_main_control = null

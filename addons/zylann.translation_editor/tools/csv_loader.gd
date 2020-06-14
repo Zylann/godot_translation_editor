@@ -1,16 +1,16 @@
 tool
 
 # TODO Can't type nullable return value
-static func load_csv_translation(filepath: String):
+static func load_csv_translation(filepath: String, logger):
 	var f := File.new()
 	var err := f.open(filepath, File.READ)
 	if err != OK:
-		printerr("Could not open ", filepath, " for read, code ", err)
+		logger.error("Could not open {0} for read, code {1}".format([filepath, err]))
 		return null
 	
 	var first_row := f.get_csv_line()
 	if first_row[0] != "id":
-		printerr("Translation file is missing the `id` column")
+		logger.error("Translation file is missing the `id` column")
 		return null
 	
 	var languages := PoolStringArray()
@@ -22,10 +22,10 @@ static func load_csv_translation(filepath: String):
 	while not f.eof_reached():
 		var row := f.get_csv_line()
 		if len(row) < 1 or row[0].strip_edges() == "":
-			printerr("Found an empty row")
+			logger.error("Found an empty row")
 			continue
 		if len(row) < len(first_row):
-			print("Found row smaller than header, resizing")
+			logger.debug("Found row smaller than header, resizing")
 			row.resize(len(first_row))
 		ids.append(row[0])
 		var trans = PoolStringArray()
@@ -49,8 +49,8 @@ class _Sorter:
 		return a[0] < b[0]
 
 
-static func save_csv_translation(filepath: String, data: Dictionary) -> Array:
-	print("Saving: ", data)
+static func save_csv_translation(filepath: String, data: Dictionary, logger) -> Array:
+	logger.debug(str("Saving: ", data))
 	var languages_set := {}
 	for id in data:
 		var s = data[id]
@@ -58,7 +58,7 @@ static func save_csv_translation(filepath: String, data: Dictionary) -> Array:
 			languages_set[language] = true
 	
 	if len(languages_set) == 0:
-		printerr("No language found, nothing to save")
+		logger.error("No language found, nothing to save")
 		return []
 	
 	var languages := languages_set.keys()
@@ -94,7 +94,7 @@ static func save_csv_translation(filepath: String, data: Dictionary) -> Array:
 	var f := File.new()
 	var err := f.open(filepath, File.WRITE)
 	if err != OK:
-		printerr("Could not open ", filepath, " for write, code ", err)
+		logger.error("Could not open {0} for write, code {1}".format([filepath, err]))
 		return []
 
 	store_csv_line(f, first_row)
@@ -102,7 +102,7 @@ static func save_csv_translation(filepath: String, data: Dictionary) -> Array:
 		store_csv_line(f, row)
 	
 	f.close()
-	print("Saved ", filepath)
+	logger.debug(str("Saved ", filepath))
 	var saved_languages := languages
 	return saved_languages
 

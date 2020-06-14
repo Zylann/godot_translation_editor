@@ -1,4 +1,6 @@
 
+const Logger = preload("./util/logger.gd")
+
 const STATE_SEARCHING = 0
 const STATE_READING_TEXT = 1
 
@@ -13,6 +15,7 @@ var _thread : Thread = null
 var _time_before := 0.0
 var _ignored_paths := {}
 var _paths := []
+var _logger = Logger.get_for(self)
 
 
 func extract_async(root: String, ignored_paths := []):
@@ -39,14 +42,14 @@ func _prepare(root: String, ignored_paths: Array):
 
 
 func _extract(root: String):
-	_walk(root, funcref(self, "_index_file"), funcref(self, "_filter"))
+	_walk(root, funcref(self, "_index_file"), funcref(self, "_filter"), _logger)
 	
 	for i in len(_paths):
 		var fpath : String = _paths[i]
 		var f := File.new()
 		var err := f.open(fpath, File.READ)
 		if err != OK:
-			printerr("Could not open '", fpath, "', for read, error ", err)
+			_logger.error("Could not open {0} for read, error {1}".format([fpath, err]))
 			continue
 		var ext := fpath.get_extension()
 		match ext:
@@ -71,7 +74,7 @@ func _finished():
 	_thread.wait_to_finish()
 	_thread = null
 	var elapsed := float(OS.get_ticks_msec() - _time_before) / 1000.0
-	print("Extraction took ", elapsed, " seconds")
+	_logger.debug(str("Extraction took ", elapsed, " seconds"))
 	emit_signal("finished", _strings)
 
 
@@ -112,8 +115,9 @@ func _process_tscn(f: File, fpath: String):
 				if i != -1:
 					var begin_quote_index := line.find('"', i + len(pattern))
 					if begin_quote_index == -1:
-						printerr("Could not find begin quote after text property, in ",
-							fpath, " line ", line_number)
+						_logger.error(
+							"Could not find begin quote after text property, in {0}, line {1}" \
+							.format([fpath, line_number]))
 						continue
 						
 					var end_quote_index := line.rfind('"')
@@ -179,18 +183,18 @@ func _process_gd(f: File, fpath: String):
 			var begin_quote_index := line.find('"', call_index)
 			if begin_quote_index == -1:
 				# Multiline or procedural strings not supported
-				printerr("Begin quote not found in ", fpath, " line ", line_number)
+				_logger.error("Begin quote not found in {0}, line {1}".format([fpath, line_number]))
 				break
 			var end_quote_index := find_unescaped_quote(line, begin_quote_index + 1)
 			if end_quote_index == -1:
 				# Multiline or procedural strings not supported
-				printerr("End quote not found in ", fpath, " line ", line_number)
+				_logger.error("End quote not found in {0}, line {1}".format([fpath, line_number]))
 				break
 			text = line.substr(begin_quote_index + 1, end_quote_index - begin_quote_index - 1)
 			var end_bracket_index := line.find(')', end_quote_index)
 			if end_bracket_index == -1:
 				# Multiline or procedural strings not supported
-				printerr("End bracket not found in ", fpath, " line ", line_number)
+				_logger.error("End bracket not found in {0}, line {1}".format([fpath, line_number]))
 				break
 			_add_string(fpath, line_number, text)
 			search_index = end_bracket_index
@@ -217,12 +221,12 @@ func _add_string(file: String, line_number: int, text: String):
 	_strings[text][file] = line_number
 
 
-static func _walk(folder_path: String, file_action: FuncRef, filter: FuncRef):
+static func _walk(folder_path: String, file_action: FuncRef, filter: FuncRef, logger):
 	#print("Walking dir ", folder_path)
 	var d := Directory.new()
 	var err := d.open(folder_path)
 	if err != OK:
-		printerr("Could not open directory '", folder_path, "', error ", err)
+		logger.error("Could not open directory {0}, error {1}".format([folder_path, err]))
 		return
 	d.list_dir_begin(true, true)
 	var fname := d.get_next()
@@ -230,7 +234,7 @@ static func _walk(folder_path: String, file_action: FuncRef, filter: FuncRef):
 		var fullpath := folder_path.plus_file(fname)
 		if filter == null or filter.call_func(fullpath) == true:
 			if d.current_is_dir():
-				_walk(fullpath, file_action, filter)
+				_walk(fullpath, file_action, filter, logger)
 			else:
 				file_action.call_func(fullpath)
 		fname = d.get_next()

@@ -2,6 +2,7 @@ tool
 extends WindowDialog
 
 const Extractor = preload("./extractor.gd")
+const Logger = preload("./util/logger.gd")
 
 signal import_selected(strings)
 
@@ -17,6 +18,7 @@ var _extractor : Extractor = null
 # { string => { fpath => line number } }
 var _results := {}
 var _registered_string_filter : FuncRef = null
+var _logger = Logger.get_for(self)
 
 
 func _ready():
@@ -46,7 +48,7 @@ func _on_ExtractButton_pressed():
 	var root := _root_path_edit.text.strip_edges()
 	var d := Directory.new()
 	if not d.dir_exists(root):
-		printerr("Directory `", root, "` does not exist")
+		_logger.error("Directory {0} does not exist".format([root]))
 		return
 	
 	var excluded_dirs := _excluded_dirs_edit.text.split(";", false)
@@ -82,7 +84,8 @@ func _on_Extractor_progress_reported(ratio):
 
 
 func _on_Extractor_finished(results: Dictionary):
-	print("Extractor finished")
+	_logger.debug("Extractor finished")
+	
 	_progress_bar.value = 100
 	_progress_bar.hide()
 	

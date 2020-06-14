@@ -7,6 +7,8 @@ const Locales = preload("./locales.gd")
 const StringEditionDialog = preload("./string_edition_dialog.gd")
 const LanguageSelectionDialog = preload("./language_selection_dialog.gd")
 const ExtractorDialog = preload("./extractor_dialog.gd")
+const Util = preload("./util/util.gd")
+const Logger = preload("./util/logger.gd")
 
 const StringEditionDialogScene = preload("./string_edition_dialog.tscn")
 const LanguageSelectionDialogScene = preload("./language_selection_dialog.tscn")
@@ -46,6 +48,7 @@ var _save_folder_dialog : FileDialog = null
 var _base_control : Control = null
 var _translation_edits := {}
 var _dialogs_to_free_on_exit := []
+var _logger = Logger.get_for(self)
 
 var _data := {}
 var _languages := []
@@ -56,7 +59,7 @@ var _modified_languages := {}
 
 func _ready():
 	# I don't want any of this to run in the edited scene (because `tool`)...
-	if Engine.editor_hint and get_parent() is Viewport:
+	if Util.is_in_edited_scene(self):
 		return
 	
 	_file_menu.get_popup().add_item("Open...", MENU_FILE_OPEN)
@@ -234,16 +237,16 @@ func load_file(filepath: String):
 	if ext == "po":
 		var valid_locales := Locales.get_all_locale_ids()
 		_current_path = filepath.get_base_dir()
-		_data = PoLoader.load_po_translation(_current_path, valid_locales)
+		_data = PoLoader.load_po_translation(_current_path, valid_locales, Logger.get_for(PoLoader))
 		_current_format = FORMAT_GETTEXT
 		
 	elif ext == "csv":
-		_data = CsvLoader.load_csv_translation(filepath)
+		_data = CsvLoader.load_csv_translation(filepath, Logger.get_for(CsvLoader))
 		_current_path = filepath
 		_current_format = FORMAT_CSV
 		
 	else:
-		printerr("Unknown file format, cannot load ", filepath)
+		_logger.error("Unknown file format, cannot load {0}".format([filepath]))
 		return
 	
 	_languages.clear()
@@ -365,13 +368,14 @@ func save_file(path: String, format: int):
 			languages_to_save = _languages
 		else:
 			languages_to_save = _modified_languages.keys()
-		saved_languages = PoLoader.save_po_translations(path, _data, languages_to_save)
+		saved_languages = PoLoader.save_po_translations(
+			path, _data, languages_to_save, Logger.get_for(PoLoader))
 		
 	elif format == FORMAT_CSV:
-		saved_languages = CsvLoader.save_csv_translation(path, _data)
+		saved_languages = CsvLoader.save_csv_translation(path, _data, Logger.get_for(CsvLoader))
 		
 	else:
-		printerr("Unknown file format, cannot save ", path)
+		_logger.error("Unknown file format, cannot save {0}".format([path]))
 
 	for language in saved_languages:
 		_set_language_unmodified(language)
@@ -429,7 +433,7 @@ func _on_RemoveButton_pressed():
 func _on_RemoveStringConfirmationDialog_confirmed():
 	var selected_items := _string_list.get_selected_items()
 	if len(selected_items) == 0:
-		printerr("No selected string??")
+		_logger.error("No selected string??")
 		return
 	var strid := _string_list.get_item_text(selected_items[0])
 	_string_list.remove_item(selected_items[0])
@@ -466,7 +470,7 @@ func _validate_new_string_id(str_id: String):
 
 
 func add_new_string(strid: String):
-	print("Adding new string ", strid)
+	_logger.debug(str("Adding new string ", strid))
 	assert(not _data.has(strid))
 	var s := {
 		"translations": {},
@@ -499,7 +503,7 @@ func _add_language(language: String):
 	var menu_index := _file_menu.get_popup().get_item_index(MENU_FILE_REMOVE_LANGUAGE)
 	_file_menu.get_popup().set_item_disabled(menu_index, false)
 	
-	print("Added language ", language)
+	_logger.debug(str("Added language ", language))
 
 
 func _remove_language(language: String):
@@ -515,7 +519,7 @@ func _remove_language(language: String):
 		var menu_index = _file_menu.get_popup().get_item_index(MENU_FILE_REMOVE_LANGUAGE)
 		_file_menu.get_popup().set_item_disabled(menu_index, true)
 
-	print("Removed language ", language)
+	_logger.debug(str("Removed language ", language))
 
 
 func _on_RemoveLanguageConfirmationDialog_confirmed():
@@ -526,7 +530,7 @@ func _on_RemoveLanguageConfirmationDialog_confirmed():
 # Used as callback for filtering
 func _is_string_registered(text: String) -> bool:
 	if _data == null:
-		print("No data")
+		_logger.debug("No data")
 		return false
 	return _data.has(text)
 

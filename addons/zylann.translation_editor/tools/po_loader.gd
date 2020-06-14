@@ -5,15 +5,15 @@ const STATE_MSGID = 1
 const STATE_MSGSTR = 2
 
 # TODO Can't type nullable result
-static func load_po_translation(folder_path: String, valid_locales: Array):
+static func load_po_translation(folder_path: String, valid_locales: Array, logger):
 	var all_strings := {}
 	var config := {}
 	
 	# TODO Get languages from configs, not from filenames
-	var languages := get_languages_in_folder(folder_path, valid_locales)
+	var languages := get_languages_in_folder(folder_path, valid_locales, logger)
 	
 	if len(languages) == 0:
-		printerr("No .po languages were found in ", folder_path)
+		logger.error("No .po languages were found in {0}".format([folder_path]))
 		return all_strings
 	
 	for language in languages:
@@ -22,7 +22,7 @@ static func load_po_translation(folder_path: String, valid_locales: Array):
 		var f := File.new()
 		var err := f.open(filepath, File.READ)
 		if err != OK:
-			printerr("Could not open file ", filepath, " for read, error ", err)
+			logger.error("Could not open file {0} for read, error {1}".format([filepath, err]))
 			return null
 		
 		f.store_line("")
@@ -70,7 +70,7 @@ static func load_po_translation(folder_path: String, valid_locales: Array):
 				var s : Dictionary
 				if msgid == "":
 					assert(len(msgstr) != 0)
-					config = _parse_config(msgstr)
+					config = _parse_config(msgstr, logger)
 				else:
 					if not all_strings.has(msgid):
 						s = {
@@ -90,7 +90,7 @@ static func load_po_translation(folder_path: String, valid_locales: Array):
 				state = STATE_NONE
 				
 			else:
-				print("Unhandled .po line: ", line)
+				logger.warn("Unhandled .po line: {0}".format([line]))
 				continue
 	
 	# TODO Return configs?
@@ -105,13 +105,13 @@ static func _parse_msg(s: String) -> String:
 	return msg.c_unescape().replace('\\"', '"')
 
 
-static func _parse_config(text: String) -> Dictionary:
+static func _parse_config(text: String, logger) -> Dictionary:
 	var config := {}
 	var lines := text.split("\n", false)
-	print("Config lines: ", lines)
+	logger.debug(str("Config lines: ", lines))
 	for line in lines:
 		var splits = line.split(":")
-		print("Splits: ", splits)
+		logger.debug(str("Splits: ", splits))
 		config[splits[0]] = splits[1].strip_edges()
 	return config
 
@@ -122,7 +122,7 @@ class _Sorter:
 
 
 static func save_po_translations(folder_path: String, translations: Dictionary, 
-	languages_to_save: Array) -> Array:
+	languages_to_save: Array, logger) -> Array:
 		
 	var sorter := _Sorter.new()
 	var saved_languages := []
@@ -132,7 +132,7 @@ static func save_po_translations(folder_path: String, translations: Dictionary,
 		var filepath := folder_path.plus_file(str(language, ".po"))
 		var err := f.open(filepath, File.WRITE)
 		if err != OK:
-			printerr("Could not open file ", filepath, " for write, error ", err)
+			logger.error("Could not open file {0} for write, error {1}".format([filepath, err]))
 			continue
 		
 		# TODO Take as argument
@@ -217,12 +217,12 @@ static func _write_msg(f: File, msgtype: String, msg: String):
 		f.store_line(str(" \"", lines[i], "\""))
 
 
-static func get_languages_in_folder(folder_path: String, valid_locales: Array) -> Array:
+static func get_languages_in_folder(folder_path: String, valid_locales: Array, logger) -> Array:
 	var result := []
 	var d := Directory.new()
 	var err := d.open(folder_path)
 	if err != OK:
-		printerr("Could not open directory ", folder_path, ", error ", err)
+		logger.error("Could not open directory {0}, error {1}".format([folder_path, err]))
 		return result
 	d.list_dir_begin()
 	var fname := d.get_next()
