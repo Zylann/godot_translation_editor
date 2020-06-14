@@ -363,12 +363,12 @@ const _locales = [
 ]
 
 
-static func get_all_locales():
+static func get_all_locales() -> Array:
 	return _locales
 
 
-static func get_all_locale_ids():
-	var ids = []
+static func get_all_locale_ids() -> Array:
+	var ids := []
 	ids.resize(len(_locales))
 	for i in len(_locales):
 		ids[i] = _locales[i][0]

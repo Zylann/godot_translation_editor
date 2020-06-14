@@ -4,51 +4,52 @@ const STATE_NONE = 0
 const STATE_MSGID = 1
 const STATE_MSGSTR = 2
 
-static func load_po_translation(folder_path, valid_locales):
-	var all_strings = {}
-	var config = {}
+# TODO Can't type nullable result
+static func load_po_translation(folder_path: String, valid_locales: Array):
+	var all_strings := {}
+	var config := {}
 	
 	# TODO Get languages from configs, not from filenames
-	var languages = get_languages_in_folder(folder_path, valid_locales)
+	var languages := get_languages_in_folder(folder_path, valid_locales)
 	
 	if len(languages) == 0:
 		printerr("No .po languages were found in ", folder_path)
 		return all_strings
 	
 	for language in languages:
-		var filepath = folder_path.plus_file(str(language, ".po"))
+		var filepath := folder_path.plus_file(str(language, ".po"))
 		
-		var f = File.new()
-		var err = f.open(filepath, File.READ)
+		var f := File.new()
+		var err := f.open(filepath, File.READ)
 		if err != OK:
 			printerr("Could not open file ", filepath, " for read, error ", err)
 			return null
 		
 		f.store_line("")
 		
-		var state = STATE_NONE
-		var comment = ""
-		var msgid = ""
-		var msgstr = ""
-		var ids = []
-		var translations = []
-		var comments = []
+		var state := STATE_NONE
+		var comment := ""
+		var msgid := ""
+		var msgstr := ""
+		var ids := []
+		var translations := []
+		var comments := []
 		# For debugging
-		var line_number = -1
+		var line_number := -1
 		
 		while not f.eof_reached():
-			var line = f.get_line().strip_edges()
+			var line := f.get_line().strip_edges()
 			line_number += 1
 			
 			if line != "" and line[0] == "#":
-				var comment_line = line.right(1).strip_edges()
+				var comment_line := line.right(1).strip_edges()
 				if comment == "":
 					comment = str(comment, comment_line)
 				else:
 					comment = str(comment, "\n", comment_line)
 				continue
 			
-			var space_index = line.find(" ")
+			var space_index := line.find(" ")
 			
 			if line.begins_with("msgid"):
 				msgid = _parse_msg(line.right(space_index))
@@ -66,7 +67,7 @@ static func load_po_translation(folder_path, valid_locales):
 						msgstr = str(msgstr, _parse_msg(line))
 				
 			elif line == "" and state == STATE_MSGSTR:
-				var s = null
+				var s : Dictionary
 				if msgid == "":
 					assert(len(msgstr) != 0)
 					config = _parse_config(msgstr)
@@ -96,7 +97,7 @@ static func load_po_translation(folder_path, valid_locales):
 	return all_strings
 
 
-static func _parse_msg(s):
+static func _parse_msg(s: String) -> String:
 	s = s.strip_edges()
 	assert(s[0] == '"')
 	var end = s.rfind('"')
@@ -104,9 +105,9 @@ static func _parse_msg(s):
 	return msg.c_unescape().replace('\\"', '"')
 
 
-static func _parse_config(text):
-	var config = {}
-	var lines = text.split("\n", false)
+static func _parse_config(text: String) -> Dictionary:
+	var config := {}
+	var lines := text.split("\n", false)
 	print("Config lines: ", lines)
 	for line in lines:
 		var splits = line.split(":")
@@ -116,25 +117,26 @@ static func _parse_config(text):
 
 
 class _Sorter:
-	func sort(a, b):
+	func sort(a: Array, b: Array):
 		return a[0] < b[0]
 
 
-static func save_po_translations(folder_path, translations, languages_to_save):
-	var sorter = _Sorter.new()
-	var saved_languages = []
+static func save_po_translations(folder_path: String, translations: Dictionary, 
+	languages_to_save: Array) -> Array:
+		
+	var sorter := _Sorter.new()
+	var saved_languages := []
 	
 	for language in languages_to_save:
-		
-		var f = File.new()
-		var filepath = folder_path.plus_file(str(language, ".po"))
-		var err = f.open(filepath, File.WRITE)
+		var f := File.new()
+		var filepath := folder_path.plus_file(str(language, ".po"))
+		var err := f.open(filepath, File.WRITE)
 		if err != OK:
 			printerr("Could not open file ", filepath, " for write, error ", err)
 			continue
 		
 		# TODO Take as argument
-		var config = {
+		var config := {
 			"Project-Id-Version": ProjectSettings.get_setting("application/config/name"),
 			"MIME-Version": "1.0",
 			"Content-Type": "text/plain; charset=UTF-8",
@@ -143,17 +145,17 @@ static func save_po_translations(folder_path, translations, languages_to_save):
 		}
 		
 		# Write config
-		var config_msg = ""
+		var config_msg := ""
 		for k in config:
 			config_msg = str(config_msg, k, ": ", config[k], "\n")
 		_write_msg(f, "msgid", "")
 		_write_msg(f, "msgstr", config_msg)
 		f.store_line("")
 		
-		var items = []
+		var items := []
 		
 		for id in translations:
-			var s = translations[id]
+			var s : Dictionary = translations[id]
 			if not s.translations.has(language):
 				continue
 			items.append([id, s.translations[language], s.comments])
@@ -161,8 +163,7 @@ static func save_po_translations(folder_path, translations, languages_to_save):
 		items.sort_custom(sorter, "sort")
 				
 		for item in items:
-			
-			var comment = item[2]
+			var comment : String = item[2]
 			if comment != "":
 				var comment_lines = comment.split("\n")
 				for line in comment_lines:
@@ -179,8 +180,8 @@ static func save_po_translations(folder_path, translations, languages_to_save):
 	return saved_languages
 
 
-static func _write_msg(f, msgtype, msg):
-	var lines = msg.split("\n")
+static func _write_msg(f: File, msgtype: String, msg: String):
+	var lines := msg.split("\n")
 	# `split` removes the newlines, so we'll add them back.
 	# Empty lines may happen if the original text has multiple successsive line breaks.
 	# However, if the text ends with a newline, it will produce an empty string at the end,
@@ -216,20 +217,20 @@ static func _write_msg(f, msgtype, msg):
 		f.store_line(str(" \"", lines[i], "\""))
 
 
-static func get_languages_in_folder(folder_path, valid_locales):
-	var result = []
-	var d = Directory.new()
-	var err = d.open(folder_path)
+static func get_languages_in_folder(folder_path: String, valid_locales: Array) -> Array:
+	var result := []
+	var d := Directory.new()
+	var err := d.open(folder_path)
 	if err != OK:
 		printerr("Could not open directory ", folder_path, ", error ", err)
 		return result
 	d.list_dir_begin()
-	var fname = d.get_next()
+	var fname := d.get_next()
 	while fname != "":
 		if not d.current_is_dir():
-			var ext = fname.get_extension()
+			var ext := fname.get_extension()
 			if ext == "po":
-				var language = fname.get_basename().get_file()
+				var language := fname.get_basename().get_file()
 				if valid_locales.find(language) != -1:
 					result.append(language)
 		fname = d.get_next()

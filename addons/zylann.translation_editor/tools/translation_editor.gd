@@ -4,9 +4,13 @@ extends Panel
 const CsvLoader = preload("./csv_loader.gd")
 const PoLoader = preload("./po_loader.gd")
 const Locales = preload("./locales.gd")
-const StringEditionDialog = preload("./string_edition_dialog.tscn")
-const LanguageSelectionDialog = preload("./language_selection_dialog.tscn")
-const ExtractorDialog = preload("./extractor_dialog.tscn")
+const StringEditionDialog = preload("./string_edition_dialog.gd")
+const LanguageSelectionDialog = preload("./language_selection_dialog.gd")
+const ExtractorDialog = preload("./extractor_dialog.gd")
+
+const StringEditionDialogScene = preload("./string_edition_dialog.tscn")
+const LanguageSelectionDialogScene = preload("./language_selection_dialog.tscn")
+const ExtractorDialogScene = preload("./extractor_dialog.tscn")
 
 const MENU_FILE_OPEN = 0
 const MENU_FILE_SAVE = 1
@@ -19,34 +23,35 @@ const MENU_FILE_EXTRACT = 6
 const FORMAT_CSV = 0
 const FORMAT_GETTEXT = 1
 
-onready var _file_menu = $VBoxContainer/MenuBar/FileMenu
-onready var _edit_menu = $VBoxContainer/MenuBar/EditMenu
-onready var _search_edit = $VBoxContainer/Main/LeftPane/Search/Search
-onready var _clear_search_button = $VBoxContainer/Main/LeftPane/Search/ClearSearch
-onready var _string_list = $VBoxContainer/Main/LeftPane/StringList
-onready var _translation_tab_container = \
+onready var _file_menu : MenuButton = $VBoxContainer/MenuBar/FileMenu
+onready var _edit_menu : MenuButton = $VBoxContainer/MenuBar/EditMenu
+onready var _search_edit : LineEdit = $VBoxContainer/Main/LeftPane/Search/Search
+onready var _clear_search_button : Button = $VBoxContainer/Main/LeftPane/Search/ClearSearch
+onready var _string_list : ItemList = $VBoxContainer/Main/LeftPane/StringList
+onready var _translation_tab_container : TabContainer = \
 	$VBoxContainer/Main/RightPane/VSplitContainer/TranslationTabContainer
-onready var _notes_edit = $VBoxContainer/Main/RightPane/VSplitContainer/VBoxContainer/NotesEdit
-onready var _status_label = $VBoxContainer/StatusBar/Label
+onready var _notes_edit : TextEdit = \
+	$VBoxContainer/Main/RightPane/VSplitContainer/VBoxContainer/NotesEdit
+onready var _status_label : Label = $VBoxContainer/StatusBar/Label
 
-var _string_edit_dialog = null
-var _language_selection_dialog = null
-var _remove_language_confirmation_dialog = null
-var _remove_string_confirmation_dialog = null
-var _extractor_dialog = null
-var _open_dialog = null
-var _save_file_dialog = null
-var _save_folder_dialog = null
+var _string_edit_dialog : StringEditionDialog = null
+var _language_selection_dialog : LanguageSelectionDialog = null
+var _remove_language_confirmation_dialog : ConfirmationDialog = null
+var _remove_string_confirmation_dialog : ConfirmationDialog = null
+var _extractor_dialog : ExtractorDialog = null
+var _open_dialog : FileDialog = null
+var _save_file_dialog : FileDialog = null
+var _save_folder_dialog : FileDialog = null
 # This is set when integrated as a Godot plugin
-var _base_control = null
-var _translation_edits = {}
-var _dialogs_to_free_on_exit = []
+var _base_control : Control = null
+var _translation_edits := {}
+var _dialogs_to_free_on_exit := []
 
-var _data = {}
-var _languages = []
-var _current_path = null
-var _current_format = FORMAT_CSV
-var _modified_languages = {}
+var _data := {}
+var _languages := []
+var _current_path := ""
+var _current_format := FORMAT_CSV
+var _modified_languages := {}
 
 
 func _ready():
@@ -100,12 +105,12 @@ func _setup_dialogs():
 	_save_folder_dialog.connect("dir_selected", self, "_on_SaveFolderDialog_dir_selected")
 	_add_dialog(_save_folder_dialog)
 	
-	_string_edit_dialog = StringEditionDialog.instance()
+	_string_edit_dialog = StringEditionDialogScene.instance()
 	_string_edit_dialog.set_validator(funcref(self, "_validate_new_string_id"))
 	_string_edit_dialog.connect("submitted", self, "_on_StringEditionDialog_submitted")
 	_add_dialog(_string_edit_dialog)
 	
-	_language_selection_dialog = LanguageSelectionDialog.instance()
+	_language_selection_dialog = LanguageSelectionDialogScene.instance()
 	_language_selection_dialog.connect(
 		"language_selected", self, "_on_LanguageSelectionDialog_language_selected")
 	_add_dialog(_language_selection_dialog)
@@ -117,7 +122,7 @@ func _setup_dialogs():
 		"confirmed", self, "_on_RemoveLanguageConfirmationDialog_confirmed")
 	_add_dialog(_remove_language_confirmation_dialog)
 	
-	_extractor_dialog = ExtractorDialog.instance()
+	_extractor_dialog = ExtractorDialogScene.instance()
 	_extractor_dialog.set_registered_string_filter(funcref(self, "_is_string_registered"))
 	_extractor_dialog.connect("import_selected", self, "_on_ExtractorDialog_import_selected")
 	_add_dialog(_extractor_dialog)
@@ -130,7 +135,7 @@ func _setup_dialogs():
 	_add_dialog(_remove_string_confirmation_dialog)
 
 
-func _add_dialog(dialog):
+func _add_dialog(dialog: Control):
 	if _base_control != null:
 		_base_control.add_child(dialog)
 		_dialogs_to_free_on_exit.append(dialog)
@@ -146,7 +151,7 @@ func _exit_tree():
 	_dialogs_to_free_on_exit.clear()
 
 
-func configure_for_godot_integration(base_control):
+func configure_for_godot_integration(base_control: Control):
 	# You have to call this before adding to the tree
 	assert(not is_inside_tree())
 	_base_control = base_control
@@ -155,7 +160,7 @@ func configure_for_godot_integration(base_control):
 	self_modulate = Color(0, 0, 0, 0)
 
 
-func _on_FileMenu_id_pressed(id):
+func _on_FileMenu_id_pressed(id: int):
 	match id:
 		MENU_FILE_OPEN:
 			_open()
@@ -174,7 +179,7 @@ func _on_FileMenu_id_pressed(id):
 			_language_selection_dialog.popup_centered_ratio()
 			
 		MENU_FILE_REMOVE_LANGUAGE:
-			var language = get_current_language()
+			var language := get_current_language()
 			_remove_language_confirmation_dialog.window_title = \
 				str("Remove language `", language, "`")
 			_remove_language_confirmation_dialog.popup_centered_minsize()
@@ -183,19 +188,19 @@ func _on_FileMenu_id_pressed(id):
 			_extractor_dialog.popup_centered_minsize()
 
 
-func _on_EditMenu_id_pressed(id):
+func _on_EditMenu_id_pressed(id: int):
 	pass
 
 
-func _on_OpenDialog_file_selected(filepath):
+func _on_OpenDialog_file_selected(filepath: String):
 	load_file(filepath)
 
 
-func _on_SaveFileDialog_file_selected(filepath):
+func _on_SaveFileDialog_file_selected(filepath: String):
 	save_file(filepath, FORMAT_CSV)
 
 
-func _on_SaveFolderDialog_dir_selected(filepath):
+func _on_SaveFolderDialog_dir_selected(filepath: String):
 	save_file(filepath, FORMAT_GETTEXT)
 
 
@@ -207,7 +212,7 @@ func _on_SaveButton_pressed():
 	_save()
 
 
-func _on_LanguageSelectionDialog_language_selected(language):
+func _on_LanguageSelectionDialog_language_selected(language: String):
 	_add_language(language)
 
 
@@ -216,18 +221,18 @@ func _open():
 
 
 func _save():
-	if _current_path == null:
+	if _current_path == "":
 		# Have to default to CSV for now...
 		_save_file_dialog.popup_centered_ratio()
 	else:
 		save_file(_current_path, _current_format)
 
 
-func load_file(filepath):
-	var ext = filepath.get_extension()
+func load_file(filepath: String):
+	var ext := filepath.get_extension()
 	
 	if ext == "po":
-		var valid_locales = Locales.get_all_locale_ids()
+		var valid_locales := Locales.get_all_locale_ids()
 		_current_path = filepath.get_base_dir()
 		_data = PoLoader.load_po_translation(_current_path, valid_locales)
 		_current_format = FORMAT_GETTEXT
@@ -243,7 +248,7 @@ func load_file(filepath):
 	
 	_languages.clear()
 	for strid in _data:
-		var s = _data[strid]
+		var s : Dictionary = _data[strid]
 		for language in s.translations:
 			if _languages.find(language) == -1:
 				_languages.append(language)
@@ -264,7 +269,7 @@ func load_file(filepath):
 
 
 func _update_status_label():
-	if _current_path == null:
+	if _current_path == "":
 		_status_label.text = "No file loaded"
 	elif _current_format == FORMAT_CSV:
 		_status_label.text = _current_path
@@ -272,27 +277,27 @@ func _update_status_label():
 		_status_label.text = str(_current_path, " (Gettext translations folder)")
 
 
-func _create_translation_edit(language):
+func _create_translation_edit(language: String):
 	assert(not _translation_edits.has(language)) # boom
-	var edit = TextEdit.new()
+	var edit := TextEdit.new()
 	edit.hide()
-	var tab_index = _translation_tab_container.get_tab_count()
+	var tab_index := _translation_tab_container.get_tab_count()
 	_translation_tab_container.add_child(edit)
 	_translation_tab_container.set_tab_title(tab_index, language)
 	_translation_edits[language] = edit
 	edit.connect("text_changed", self, "_on_TranslationEdit_text_changed", [language])
 
 
-func _on_TranslationEdit_text_changed(language):
-	var edit = _translation_edits[language]
-	var selected_strids = _string_list.get_selected_items()
+func _on_TranslationEdit_text_changed(language: String):
+	var edit : TextEdit = _translation_edits[language]
+	var selected_strids := _string_list.get_selected_items()
 	# TODO Don't show the editor if no strings are selected
 	if len(selected_strids) != 1:
 		return
 	#assert(len(selected_strids) == 1)
-	var strid = _string_list.get_item_text(selected_strids[0])
-	var prev_text = null
-	var s = _data[strid]
+	var strid := _string_list.get_item_text(selected_strids[0])
+	var prev_text : String
+	var s : Dictionary = _data[strid]
 	if s.translations.has(language):
 		prev_text = s.translations[language]
 	if prev_text != edit.text:
@@ -301,34 +306,34 @@ func _on_TranslationEdit_text_changed(language):
 
 
 func _on_NotesEdit_text_changed():
-	var selected_strids = _string_list.get_selected_items()
+	var selected_strids := _string_list.get_selected_items()
 	# TODO Don't show the editor if no strings are selected
 	if len(selected_strids) != 1:
 		return
 	#assert(len(selected_strids) == 1)
-	var strid = _string_list.get_item_text(selected_strids[0])
-	var s = _data[strid]
+	var strid := _string_list.get_item_text(selected_strids[0])
+	var s : Dictionary = _data[strid]
 	if s.comments != _notes_edit.text:
 		s.comments = _notes_edit.text
 		for language in _languages:
 			_set_language_modified(language)
 
 
-func _set_language_modified(language):
+func _set_language_modified(language: String):
 	if _modified_languages.has(language):
 		return
 	_modified_languages[language] = true
 	_set_language_tab_title(language, str(language, "*"))
 
 
-func _set_language_unmodified(language):
+func _set_language_unmodified(language: String):
 	if not _modified_languages.has(language):
 		return
 	_modified_languages.erase(language)
 	_set_language_tab_title(language, language)
 
 
-func _set_language_tab_title(language, title):
+func _set_language_tab_title(language: String, title: String):
 	var page = _translation_edits[language]
 	for i in _translation_tab_container.get_child_count():
 		if _translation_tab_container.get_child(i) == page:
@@ -341,21 +346,21 @@ func _set_language_tab_title(language, title):
 	assert(false)
 
 
-func get_current_language():
+func get_current_language() -> String:
 	var page = _translation_tab_container.get_current_tab_control()
 	for language in _translation_edits:
 		if _translation_edits[language] == page:
 			return language
 	# Something bad happened
 	assert(false)
-	return null
+	return ""
 
 
-func save_file(path, format):
-	var saved_languages = []
+func save_file(path: String, format: int):
+	var saved_languages := []
 	
 	if format == FORMAT_GETTEXT:
-		var languages_to_save
+		var languages_to_save : Array
 		if _current_format != FORMAT_GETTEXT:
 			languages_to_save = _languages
 		else:
@@ -377,9 +382,9 @@ func save_file(path, format):
 
 
 func refresh_list():
-	var search_text = _search_edit.text.strip_edges()
+	var search_text := _search_edit.text.strip_edges()
 	
-	var sorted_strids = []
+	var sorted_strids := []
 	if search_text == "":
 		sorted_strids = _data.keys()
 	else:
@@ -394,11 +399,11 @@ func refresh_list():
 		_string_list.add_item(strid)
 
 
-func _on_StringList_item_selected(index):
-	var str_id = _string_list.get_item_text(index)
-	var s = _data[str_id]
+func _on_StringList_item_selected(index: int):
+	var str_id := _string_list.get_item_text(index)
+	var s : Dictionary = _data[str_id]
 	for language in _languages:
-		var e = _translation_edits[language]
+		var e : TextEdit = _translation_edits[language]
 		#e.show()
 		if s.translations.has(language):
 			e.text = s.translations[language]
@@ -408,7 +413,7 @@ func _on_StringList_item_selected(index):
 
 
 func _on_AddButton_pressed():
-	_string_edit_dialog.set_replaced_str_id(null)
+	_string_edit_dialog.set_replaced_str_id("")
 	_string_edit_dialog.popup_centered()
 
 
@@ -416,17 +421,17 @@ func _on_RemoveButton_pressed():
 	var selected_items = _string_list.get_selected_items()
 	if len(selected_items) == 0:
 		return
-	var str_id = _string_list.get_item_text(selected_items[0])
+	var str_id := _string_list.get_item_text(selected_items[0])
 	_remove_string_confirmation_dialog.window_title = str("Remove `", str_id, "`")
 	_remove_string_confirmation_dialog.popup_centered_minsize()
 
 
 func _on_RemoveStringConfirmationDialog_confirmed():
-	var selected_items = _string_list.get_selected_items()
+	var selected_items := _string_list.get_selected_items()
 	if len(selected_items) == 0:
 		printerr("No selected string??")
 		return
-	var strid = _string_list.get_item_text(selected_items[0])
+	var strid := _string_list.get_item_text(selected_items[0])
 	_string_list.remove_item(selected_items[0])
 	_data.erase(strid)
 	for language in _languages:
@@ -434,22 +439,22 @@ func _on_RemoveStringConfirmationDialog_confirmed():
 
 
 func _on_RenameButton_pressed():
-	var selected_items = _string_list.get_selected_items()
+	var selected_items := _string_list.get_selected_items()
 	if len(selected_items) == 0:
 		return
-	var str_id = _string_list.get_item_text(selected_items[0])
+	var str_id := _string_list.get_item_text(selected_items[0])
 	_string_edit_dialog.set_replaced_str_id(str_id)
 	_string_edit_dialog.popup_centered()
 
 
-func _on_StringEditionDialog_submitted(str_id, prev_str_id):
-	if prev_str_id == null:
+func _on_StringEditionDialog_submitted(str_id: String, prev_str_id: String):
+	if prev_str_id == "":
 		add_new_string(str_id)
 	else:
 		rename_string(prev_str_id, str_id)
 
 
-func _validate_new_string_id(str_id):
+func _validate_new_string_id(str_id: String):
 	if _data.has(str_id):
 		return "Already existing"
 	if str_id.strip_edges() != str_id:
@@ -460,10 +465,10 @@ func _validate_new_string_id(str_id):
 	return true
 
 
-func add_new_string(strid):
+func add_new_string(strid: String):
 	print("Adding new string ", strid)
 	assert(not _data.has(strid))
-	var s = {
+	var s := {
 		"translations": {},
 		"comments": ""
 	}
@@ -473,9 +478,9 @@ func add_new_string(strid):
 		_set_language_modified(language)
 
 
-func rename_string(old_strid, new_strid):
+func rename_string(old_strid: String, new_strid: String):
 	assert(_data.has(old_strid))
-	var s = _data[old_strid]
+	var s : Dictionary = _data[old_strid]
 	_data.erase(old_strid)
 	_data[new_strid] = s
 	for i in _string_list.get_item_count():
@@ -484,24 +489,24 @@ func rename_string(old_strid, new_strid):
 			break
 
 
-func _add_language(language):
+func _add_language(language: String):
 	assert(_languages.find(language) == -1)
 	
 	_create_translation_edit(language)
 	_languages.append(language)
 	_set_language_modified(language)
 	
-	var menu_index = _file_menu.get_popup().get_item_index(MENU_FILE_REMOVE_LANGUAGE)
+	var menu_index := _file_menu.get_popup().get_item_index(MENU_FILE_REMOVE_LANGUAGE)
 	_file_menu.get_popup().set_item_disabled(menu_index, false)
 	
 	print("Added language ", language)
 
 
-func _remove_language(language):
+func _remove_language(language: String):
 	assert(_languages.find(language) != -1)
 	
 	_set_language_unmodified(language)
-	var edit = _translation_edits[language]
+	var edit : TextEdit = _translation_edits[language]
 	edit.queue_free()
 	_translation_edits.erase(language)
 	_languages.erase(language)
@@ -514,25 +519,25 @@ func _remove_language(language):
 
 
 func _on_RemoveLanguageConfirmationDialog_confirmed():
-	var language = get_current_language()
+	var language := get_current_language()
 	_remove_language(language)
 
 
 # Used as callback for filtering
-func _is_string_registered(text):
+func _is_string_registered(text: String) -> bool:
 	if _data == null:
 		print("No data")
 		return false
 	return _data.has(text)
 
 
-func _on_ExtractorDialog_import_selected(results):
+func _on_ExtractorDialog_import_selected(results: Dictionary):
 	for text in results:
 		if not _is_string_registered(text):
 			add_new_string(text)
 
 
-func _on_Search_text_changed(search_text):
+func _on_Search_text_changed(search_text: String):
 	_clear_search_button.visible = (search_text != "")
 	refresh_list()
 

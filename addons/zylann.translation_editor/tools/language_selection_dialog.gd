@@ -5,11 +5,11 @@ const Locales = preload("./locales.gd")
 
 signal language_selected(language)
 
-onready var _filter_edit = $VBoxContainer/FilterEdit
-onready var _languages_list = $VBoxContainer/LanguagesList
-onready var _ok_button = $VBoxContainer/Buttons/OkButton
+onready var _filter_edit : LineEdit = $VBoxContainer/FilterEdit
+onready var _languages_list : Tree = $VBoxContainer/LanguagesList
+onready var _ok_button : Button = $VBoxContainer/Buttons/OkButton
 
-var _hidden_locales = []
+var _hidden_locales := []
 
 
 func configure(hidden_locales):
@@ -20,8 +20,8 @@ func configure(hidden_locales):
 func refresh_list():
 	_languages_list.clear()
 	
-	var filter = _filter_edit.text.strip_edges()
-	var locales = Locales.get_all_locales()
+	var filter := _filter_edit.text.strip_edges()
+	var locales := Locales.get_all_locales()
 
 	# Hidden root
 	_languages_list.create_item()
@@ -31,7 +31,7 @@ func refresh_list():
 			continue
 		if filter != "" and locale[0].findn(filter) == -1:
 			continue
-		var item = _languages_list.create_item()
+		var item : TreeItem = _languages_list.create_item()
 		item.set_text(0, locale[0])
 		item.set_text(1, locale[1])
 	
@@ -39,7 +39,7 @@ func refresh_list():
 
 
 func submit():
-	var item = _languages_list.get_selected()
+	var item := _languages_list.get_selected()
 	emit_signal("language_selected", item.get_text(0))
 	hide()
 

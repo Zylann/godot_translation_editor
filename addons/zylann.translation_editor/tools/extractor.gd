@@ -8,26 +8,26 @@ signal progress_reported(ratio)
 
 # TODO Do we want to know if a text is found multiple times in the same file?
 # text => { file => line number }
-var _strings = {}
-var _thread = null
-var _time_before = 0.0
-var _ignored_paths = {}
-var _paths = []
+var _strings := {}
+var _thread : Thread = null
+var _time_before := 0.0
+var _ignored_paths := {}
+var _paths := []
 
 
-func extract_async(root, ignored_paths=[]):
+func extract_async(root: String, ignored_paths := []):
 	_prepare(root, ignored_paths)
 	_thread = Thread.new()
 	_thread.start(self, "_extract_thread_func", root)
 
 
-func extract(root, ignored_paths=[]):
+func extract(root: String, ignored_paths := []) -> Dictionary:
 	_prepare(root, ignored_paths)
 	_extract(root)
 	return _strings
 
 
-func _prepare(root, ignored_paths):
+func _prepare(root: String, ignored_paths: Array):
 	_time_before = OS.get_ticks_msec()
 	assert(_thread == null)
 	
@@ -38,17 +38,17 @@ func _prepare(root, ignored_paths):
 	_strings.clear()
 
 
-func _extract(root):
+func _extract(root: String):
 	_walk(root, funcref(self, "_index_file"), funcref(self, "_filter"))
 	
 	for i in len(_paths):
-		var fpath = _paths[i]
-		var f = File.new()
-		var err = f.open(fpath, File.READ)
+		var fpath : String = _paths[i]
+		var f := File.new()
+		var err := f.open(fpath, File.READ)
 		if err != OK:
 			printerr("Could not open '", fpath, "', for read, error ", err)
 			continue
-		var ext = fpath.get_extension()
+		var ext := fpath.get_extension()
 		match ext:
 			"tscn":
 				_process_tscn(f, fpath)
@@ -58,24 +58,24 @@ func _extract(root):
 		call_deferred("_report_progress", float(i) / float(len(_paths)))
 	
 	
-func _extract_thread_func(root):
+func _extract_thread_func(root: String):
 	_extract(root)
 	call_deferred("_finished")
 
 
-func _report_progress(ratio):
+func _report_progress(ratio: float):
 	emit_signal("progress_reported", ratio)
 
 
 func _finished():
 	_thread.wait_to_finish()
 	_thread = null
-	var elapsed = float(OS.get_ticks_msec() - _time_before) / 1000.0
+	var elapsed := float(OS.get_ticks_msec() - _time_before) / 1000.0
 	print("Extraction took ", elapsed, " seconds")
 	emit_signal("finished", _strings)
 
 
-func _filter(path):
+func _filter(path: String) -> bool:
 	if path in _ignored_paths:
 		return false
 	if path[0] == ".":
@@ -83,41 +83,40 @@ func _filter(path):
 	return true
 
 
-func _index_file(fpath):
-	var ext = fpath.get_extension()
+func _index_file(fpath: String):
+	var ext := fpath.get_extension()
 	#print("File ", fpath)
 	if ext != "tscn" and ext != "gd":
 		return
 	_paths.append(fpath)
 
 
-func _process_tscn(f, fpath):
+func _process_tscn(f: File, fpath: String):
 	# TOOD Also search for "window_title" and "dialog_text"
-	var pattern = "text ="
-	var text = ""
-	var state = STATE_SEARCHING
-	var line_number = 0
+	var pattern := "text ="
+	var text := ""
+	var state := STATE_SEARCHING
+	var line_number := 0
 	
 	while not f.eof_reached():
-		var line = f.get_line()
+		var line := f.get_line()
 		line_number += 1
 		
 		if line == "":
 			continue
 		
 		match state:
-			
 			STATE_SEARCHING:
-				var i = line.find(pattern)
+				var i := line.find(pattern)
 				
 				if i != -1:
-					var begin_quote_index = line.find('"', i + len(pattern))
+					var begin_quote_index := line.find('"', i + len(pattern))
 					if begin_quote_index == -1:
 						printerr("Could not find begin quote after text property, in ",
 							fpath, " line ", line_number)
 						continue
 						
-					var end_quote_index = line.rfind('"')
+					var end_quote_index := line.rfind('"')
 					
 					if end_quote_index != -1 and end_quote_index > begin_quote_index \
 					and line[end_quote_index - 1] != '\\':
@@ -144,23 +143,23 @@ func _process_tscn(f, fpath):
 					text = str(text, line, "\n")
 
 
-func _process_gd(f, fpath):
-	var text = ""
-	var line_number = 0
+func _process_gd(f: File, fpath: String):
+	var text := ""
+	var line_number := 0
 	
 	while not f.eof_reached():
-		var line = f.get_line().strip_edges()
+		var line := f.get_line().strip_edges()
 		line_number += 1
 
 		if line == "" or line[0] == "#":
 			continue
 		
 		# Search for one or multiple tr("...") in the same line
-		var search_index = 0
-		var counter = 0
+		var search_index := 0
+		var counter := 0
 		while true:
-			var pattern = "tr("
-			var call_index = line.find(pattern, search_index)
+			var pattern := "tr("
+			var call_index := line.find(pattern, search_index)
 			if call_index == -1:
 				pattern = "TranslationServer.translate("
 				call_index = line.find(pattern, search_index)
@@ -177,18 +176,18 @@ func _process_gd(f, fpath):
 				# TODO There may be more cases to handle
 				# They may need regexes or a simplified GDScript parser to extract properly
 			
-			var begin_quote_index = line.find('"', call_index)
+			var begin_quote_index := line.find('"', call_index)
 			if begin_quote_index == -1:
 				# Multiline or procedural strings not supported
 				printerr("Begin quote not found in ", fpath, " line ", line_number)
 				break
-			var end_quote_index = find_unescaped_quote(line, begin_quote_index + 1)
+			var end_quote_index := find_unescaped_quote(line, begin_quote_index + 1)
 			if end_quote_index == -1:
 				# Multiline or procedural strings not supported
 				printerr("End quote not found in ", fpath, " line ", line_number)
 				break
 			text = line.substr(begin_quote_index + 1, end_quote_index - begin_quote_index - 1)
-			var end_bracket_index = line.find(')', end_quote_index)
+			var end_bracket_index := line.find(')', end_quote_index)
 			if end_bracket_index == -1:
 				# Multiline or procedural strings not supported
 				printerr("End bracket not found in ", fpath, " line ", line_number)
@@ -201,7 +200,7 @@ func _process_gd(f, fpath):
 			assert(counter < 100)
 
 
-static func find_unescaped_quote(s, from):
+static func find_unescaped_quote(s, from) -> int:
 	while true:
 		var i = s.find('"', from)
 		if i <= 0:
@@ -209,25 +208,26 @@ static func find_unescaped_quote(s, from):
 		if s[i - 1] != '\\':
 			return i
 		from = i + 1
+	return -1
 
 
-func _add_string(file, line_number, text):
+func _add_string(file: String, line_number: int, text: String):
 	if not _strings.has(text):
 		_strings[text] = {}
 	_strings[text][file] = line_number
 
 
-static func _walk(folder_path, file_action, filter):
+static func _walk(folder_path: String, file_action: FuncRef, filter: FuncRef):
 	#print("Walking dir ", folder_path)
-	var d = Directory.new()
-	var err = d.open(folder_path)
+	var d := Directory.new()
+	var err := d.open(folder_path)
 	if err != OK:
 		printerr("Could not open directory '", folder_path, "', error ", err)
 		return
 	d.list_dir_begin(true, true)
-	var fname = d.get_next()
+	var fname := d.get_next()
 	while fname != "":
-		var fullpath = folder_path.plus_file(fname)
+		var fullpath := folder_path.plus_file(fname)
 		if filter == null or filter.call_func(fullpath) == true:
 			if d.current_is_dir():
 				_walk(fullpath, file_action, filter)

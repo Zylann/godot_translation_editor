@@ -1,25 +1,26 @@
 tool
 
-static func load_csv_translation(filepath):
-	var f = File.new()
-	var err = f.open(filepath, File.READ)
+# TODO Can't type nullable return value
+static func load_csv_translation(filepath: String):
+	var f := File.new()
+	var err := f.open(filepath, File.READ)
 	if err != OK:
 		printerr("Could not open ", filepath, " for read, code ", err)
 		return null
 	
-	var first_row = f.get_csv_line()
+	var first_row := f.get_csv_line()
 	if first_row[0] != "id":
 		printerr("Translation file is missing the `id` column")
 		return null
 	
-	var languages = PoolStringArray()
+	var languages := PoolStringArray()
 	for i in range(1, len(first_row)):
 		languages.append(first_row[i])
 	
-	var ids = []
-	var rows = []
+	var ids := []
+	var rows := []
 	while not f.eof_reached():
-		var row = f.get_csv_line()
+		var row := f.get_csv_line()
 		if len(row) < 1 or row[0].strip_edges() == "":
 			printerr("Found an empty row")
 			continue
@@ -33,9 +34,9 @@ static func load_csv_translation(filepath):
 		rows.append(trans)
 	f.close()
 	
-	var translations = {}
+	var translations := {}
 	for i in len(ids):
-		var t = {}
+		var t := {}
 		for language_index in len(rows[i]):
 			t[languages[language_index]] = rows[i][language_index]
 		translations[ids[i]] = { "translations": t, "comments": "" }
@@ -44,37 +45,37 @@ static func load_csv_translation(filepath):
 
 
 class _Sorter:
-	func sort(a, b):
+	func sort(a: Array, b: Array):
 		return a[0] < b[0]
 
 
-static func save_csv_translation(filepath, data):
+static func save_csv_translation(filepath: String, data: Dictionary) -> Array:
 	print("Saving: ", data)
-	var languages = {}
+	var languages_set := {}
 	for id in data:
 		var s = data[id]
 		for language in s.translations:
-			languages[language] = true
+			languages_set[language] = true
 	
-	if len(languages) == 0:
+	if len(languages_set) == 0:
 		printerr("No language found, nothing to save")
 		return []
 	
-	languages = languages.keys()
+	var languages := languages_set.keys()
 	languages.sort()
 	
-	var first_row = ["id"]
+	var first_row := ["id"]
 	first_row.resize(len(languages) + 1)
 	for i in len(languages):
 		first_row[i + 1] = languages[i]
 	
-	var rows = []
+	var rows := []
 	rows.resize(len(data))
 	
-	var row_index = 0
+	var row_index := 0
 	for id in data:
-		var s = data[id]
-		var row = []
+		var s : Dictionary = data[id]
+		var row := []
 		row.resize(len(languages) + 1)
 		row[0] = id
 		for i in len(languages):
@@ -84,14 +85,14 @@ static func save_csv_translation(filepath, data):
 			row[i + 1] = text
 		rows[row_index] = row
 		row_index += 1
-	print(rows)
-	var sorter = _Sorter.new()
+		
+	var sorter := _Sorter.new()
 	rows.sort_custom(sorter, "sort")
 
-	var delim = ","
+	var delim := ","
 
-	var f = File.new()
-	var err = f.open(filepath, File.WRITE)
+	var f := File.new()
+	var err := f.open(filepath, File.WRITE)
 	if err != OK:
 		printerr("Could not open ", filepath, " for write, code ", err)
 		return []
@@ -102,15 +103,15 @@ static func save_csv_translation(filepath, data):
 	
 	f.close()
 	print("Saved ", filepath)
-	var saved_languages = languages
+	var saved_languages := languages
 	return saved_languages
 
 
-static func store_csv_line(f, a, delim = ","):
+static func store_csv_line(f: File, a: Array, delim := ","):
 	for i in len(a):
 		if i > 0:
 			f.store_string(",")
-		var text = str(a[i])
+		var text := str(a[i])
 		# Behavior taken from LibreOffice
 		if text.find(delim) != -1 or text.find('"') != -1 or text.find("\n") != -1:
 			text = str('"', text.replace('"', '""'), '"')

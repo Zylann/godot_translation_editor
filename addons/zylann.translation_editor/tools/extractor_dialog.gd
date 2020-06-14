@@ -5,30 +5,29 @@ const Extractor = preload("./extractor.gd")
 
 signal import_selected(strings)
 
-onready var _root_path_edit = $VBoxContainer/HBoxContainer/RootPathEdit
-onready var _excluded_dirs_edit = $VBoxContainer/Options/ExcludedDirsEdit
-onready var _summary_label = $VBoxContainer/StatusBar/SummaryLabel
-onready var _results_list = $VBoxContainer/Results
-onready var _progress_bar = $VBoxContainer/StatusBar/ProgressBar
-onready var _extract_button = $VBoxContainer/Buttons/ExtractButton
-onready var _import_button = $VBoxContainer/Buttons/ImportButton
+onready var _root_path_edit : LineEdit = $VBoxContainer/HBoxContainer/RootPathEdit
+onready var _excluded_dirs_edit : LineEdit = $VBoxContainer/Options/ExcludedDirsEdit
+onready var _summary_label : Label = $VBoxContainer/StatusBar/SummaryLabel
+onready var _results_list : Tree = $VBoxContainer/Results
+onready var _progress_bar : ProgressBar = $VBoxContainer/StatusBar/ProgressBar
+onready var _extract_button : Button = $VBoxContainer/Buttons/ExtractButton
+onready var _import_button : Button = $VBoxContainer/Buttons/ImportButton
 
-var _extractor = null
+var _extractor : Extractor = null
 # { string => { fpath => line number } }
-var _results = {}
-var _registered_string_filter = null
+var _results := {}
+var _registered_string_filter : FuncRef = null
 
 
 func _ready():
 	_import_button.disabled = true
 
 
-func set_registered_string_filter(registered_string_filter):
-	assert(registered_string_filter is FuncRef)
+func set_registered_string_filter(registered_string_filter: FuncRef):
 	_registered_string_filter = registered_string_filter
 
 
-func _notification(what):
+func _notification(what: int):
 	if what == NOTIFICATION_VISIBILITY_CHANGED:
 		if visible:
 			_summary_label.text = ""
@@ -44,13 +43,13 @@ func _on_ExtractButton_pressed():
 	if _extractor != null:
 		return
 	
-	var root = _root_path_edit.text.strip_edges()
-	var d = Directory.new()
+	var root := _root_path_edit.text.strip_edges()
+	var d := Directory.new()
 	if not d.dir_exists(root):
 		printerr("Directory `", root, "` does not exist")
 		return
 	
-	var excluded_dirs = _excluded_dirs_edit.text.split(";", false)
+	var excluded_dirs := _excluded_dirs_edit.text.split(";", false)
 	for i in len(excluded_dirs):
 		excluded_dirs[i] = excluded_dirs[i].strip_edges()
 	
@@ -82,20 +81,20 @@ func _on_Extractor_progress_reported(ratio):
 	_progress_bar.value = 100.0 * ratio
 
 
-func _on_Extractor_finished(results):
+func _on_Extractor_finished(results: Dictionary):
 	print("Extractor finished")
 	_progress_bar.value = 100
 	_progress_bar.hide()
 	
 	_results_list.clear()
 	
-	var registered_set = {}
-	var new_set = {}
+	var registered_set := {}
+	var new_set := {}
 	
 	# TODO We might actually want to not filter, in order to update location comments
 	# Filter results
 	if _registered_string_filter != null:
-		var texts = results.keys()
+		var texts := results.keys()
 		for text in texts:
 			if _registered_string_filter.call_func(text):
 				results.erase(text)
@@ -105,16 +104,16 @@ func _on_Extractor_finished(results):
 	_results_list.create_item()
 	
 	for text in results:
-		var item = _results_list.create_item()
+		var item : TreeItem = _results_list.create_item()
 		item.set_text(0, text)
 		item.collapsed = true
 		new_set[text] = true
 		
 		var files = results[text]
 		for file in files:
-			var line_number = files[file]
+			var line_number : int = files[file]
 			
-			var file_item = _results_list.create_item(item)
+			var file_item : TreeItem = _results_list.create_item(item)
 			file_item.set_text(0, str(file, ": ", line_number))
 	
 	_results = results
