@@ -34,11 +34,13 @@ func _notification(what: int):
 		if visible:
 			_summary_label.text = ""
 			_results.clear()
+			_results_list.clear()
 			_update_import_button()
 
 
 func _update_import_button():
-	_import_button.disabled = (_results == null or len(_results) == 0)
+	# Can only import if there are results to import
+	_import_button.disabled = (len(_results) == 0)
 
 
 func _on_ExtractButton_pressed():
