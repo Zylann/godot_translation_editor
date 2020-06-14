@@ -557,3 +557,5 @@ func _on_Search_text_changed(search_text: String):
 
 func _on_ClearSearch_pressed():
 	_search_edit.text = ""
+	# LineEdit does not emit `text_changed` when doing this
+	_on_Search_text_changed(_search_edit.text)
