@@ -1,7 +1,7 @@
 tool
 extends WindowDialog
 
-const Locales = preload("locales.gd")
+const Locales = preload("./locales.gd")
 
 signal language_selected(language)
 

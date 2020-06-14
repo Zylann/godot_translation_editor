@@ -1,7 +1,7 @@
 tool
 extends WindowDialog
 
-const Extractor = preload("extractor.gd")
+const Extractor = preload("./extractor.gd")
 
 signal import_selected(strings)
 

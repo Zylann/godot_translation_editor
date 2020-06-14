@@ -1,12 +1,12 @@
 tool
 extends Panel
 
-const CsvLoader = preload("csv_loader.gd")
-const PoLoader = preload("po_loader.gd")
-const Locales = preload("locales.gd")
-const StringEditionDialog = preload("string_edition_dialog.tscn")
-const LanguageSelectionDialog = preload("language_selection_dialog.tscn")
-const ExtractorDialog = preload("extractor_dialog.tscn")
+const CsvLoader = preload("./csv_loader.gd")
+const PoLoader = preload("./po_loader.gd")
+const Locales = preload("./locales.gd")
+const StringEditionDialog = preload("./string_edition_dialog.tscn")
+const LanguageSelectionDialog = preload("./language_selection_dialog.tscn")
+const ExtractorDialog = preload("./extractor_dialog.tscn")
 
 const MENU_FILE_OPEN = 0
 const MENU_FILE_SAVE = 1
