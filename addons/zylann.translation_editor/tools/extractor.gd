@@ -16,27 +16,31 @@ var _time_before := 0.0
 var _ignored_paths := {}
 var _paths := []
 var _logger = Logger.get_for(self)
+var _prefix := ""
+const _prefix_exclusive := true
 
 
-func extract_async(root: String, ignored_paths := []):
-	_prepare(root, ignored_paths)
+func extract_async(root: String, ignored_paths := [], prefix := ""):
+	_prepare(root, ignored_paths, prefix)
 	_thread = Thread.new()
 	_thread.start(self, "_extract_thread_func", root)
 
 
-func extract(root: String, ignored_paths := []) -> Dictionary:
-	_prepare(root, ignored_paths)
+func extract(root: String, ignored_paths := [], prefix := "") -> Dictionary:
+	_prepare(root, ignored_paths, prefix)
 	_extract(root)
 	return _strings
 
 
-func _prepare(root: String, ignored_paths: Array):
+func _prepare(root: String, ignored_paths: Array, prefix: String):
 	_time_before = OS.get_ticks_msec()
 	assert(_thread == null)
 	
 	_ignored_paths.clear()
 	for p in ignored_paths:
 		_ignored_paths[root.plus_file(p)] = true
+
+	_prefix = prefix
 	
 	_strings.clear()
 
@@ -57,6 +61,10 @@ func _extract(root: String):
 				_process_tscn(f, fpath)
 			"gd":
 				_process_gd(f, fpath)
+			"json":
+				_process_quoted_text_generic(f, fpath)
+			"cs":
+				_process_quoted_text_generic(f, fpath)
 		f.close()
 		call_deferred("_report_progress", float(i) / float(len(_paths)))
 	
@@ -95,12 +103,19 @@ func _index_file(fpath: String):
 
 
 func _process_tscn(f: File, fpath: String):
-	# TOOD Also search for "window_title" and "dialog_text"
 	var patterns := [
 		"text =",
 		"window_title =",
-		"dialog_text ="
+		"dialog_text =",
 	]
+	
+	if _prefix != "":
+		var p = str("\"", _prefix)
+		if _prefix_exclusive:
+			patterns = [p]
+		else:
+			patterns.append(p)
+
 	var text := ""
 	var state := STATE_SEARCHING
 	var line_number := 0
@@ -115,22 +130,29 @@ func _process_tscn(f: File, fpath: String):
 		match state:
 			STATE_SEARCHING:
 				var pattern : String
-				var i : int
+				var pattern_begin_index : int = -1
+
 				for p in patterns:
-					i = line.find(p)
-					if i != -1:
+					var i := line.find(p)
+					if i != -1 and (i < pattern_begin_index or pattern_begin_index == -1):
+						pattern_begin_index = i
 						pattern = p
-						break
 				
-				if i == -1:
+				if pattern_begin_index == -1:
 					continue
-				
-				var begin_quote_index := line.find('"', i + len(pattern))
-				if begin_quote_index == -1:
-					_logger.error(
-						"Could not find begin quote after text property, in {0}, line {1}" \
-						.format([fpath, line_number]))
-					continue
+
+				var begin_quote_index := -1
+			
+				if pattern[0] == "\"":
+					begin_quote_index = pattern_begin_index
+
+				else:
+					begin_quote_index = line.find('"', pattern_begin_index + len(pattern))
+					if begin_quote_index == -1:
+						_logger.error(
+							"Could not find begin quote after text property, in {0}, line {1}" \
+							.format([fpath, line_number]))
+						continue
 					
 				var end_quote_index := line.rfind('"')
 				
@@ -139,7 +161,7 @@ func _process_tscn(f: File, fpath: String):
 					text = line.substr(begin_quote_index + 1, 
 						end_quote_index - begin_quote_index - 1)
 						
-					if text != "":
+					if text != "" and text != _prefix:
 						_add_string(fpath, line_number, text)
 					text = ""
 					
@@ -163,6 +185,18 @@ func _process_gd(f: File, fpath: String):
 	var text := ""
 	var line_number := 0
 	
+	var patterns := [
+		"tr(",
+		"TranslationServer.translate("
+	]
+	
+	if _prefix != "":
+		var p = str("\"", _prefix)
+		if _prefix_exclusive:
+			patterns = [p]
+		else:
+			patterns.append(p)
+	
 	while not f.eof_reached():
 		var line := f.get_line().strip_edges()
 		line_number += 1
@@ -173,47 +207,90 @@ func _process_gd(f: File, fpath: String):
 		# Search for one or multiple tr("...") in the same line
 		var search_index := 0
 		var counter := 0
-		while true:
-			var pattern := "tr("
-			var call_index := line.find(pattern, search_index)
-			if call_index == -1:
-				pattern = "TranslationServer.translate("
-				call_index = line.find(pattern, search_index)
-				if call_index == -1:
-					break
+		while search_index < len(line):
+			# Find closest pattern
+			var pattern : String
+			var pattern_start_index := -1
+			for p in patterns:
+				var i = line.find(p, search_index)
+				if i != -1 and (i < pattern_start_index or pattern_start_index == -1):
+					pattern_start_index = i
+					pattern = p
+			
+			if pattern_start_index == -1:
+				# No pattern found in entire line
+				break
+			
+			var begin_quote_index = -1
+			if pattern[0] == "\"":
+				# Detected by prefix
+				begin_quote_index = pattern_start_index
 				
-			if call_index != 0:
-				if line.substr(call_index - 1, 3).is_valid_identifier():
-					# not a tr( call, skip
-					search_index = call_index + len(pattern)
+			else:
+				# Detect by call to TranslationServer
+				if line.substr(pattern_start_index - 1, 3).is_valid_identifier() \
+				or line[pattern_start_index - 1] == '"':
+					# not a tr( call, or inside a string. skip
+					search_index = pattern_start_index + len(pattern)
 					continue
-				if line[call_index - 1] == '"':
-					break
 				# TODO There may be more cases to handle
 				# They may need regexes or a simplified GDScript parser to extract properly
 			
-			var begin_quote_index := line.find('"', call_index)
-			if begin_quote_index == -1:
-				# Multiline or procedural strings not supported
-				_logger.error("Begin quote not found in {0}, line {1}".format([fpath, line_number]))
-				break
+				begin_quote_index = line.find('"', pattern_start_index)
+				if begin_quote_index == -1:
+					# Multiline or procedural strings not supported
+					_logger.error("Begin quote not found in {0}, line {1}" \
+						.format([fpath, line_number]))
+					# No quote found in entire line, skip
+					break
+			
 			var end_quote_index := find_unescaped_quote(line, begin_quote_index + 1)
 			if end_quote_index == -1:
 				# Multiline or procedural strings not supported
 				_logger.error("End quote not found in {0}, line {1}".format([fpath, line_number]))
 				break
+			
 			text = line.substr(begin_quote_index + 1, end_quote_index - begin_quote_index - 1)
-			var end_bracket_index := line.find(')', end_quote_index)
-			if end_bracket_index == -1:
-				# Multiline or procedural strings not supported
-				_logger.error("End bracket not found in {0}, line {1}".format([fpath, line_number]))
-				break
-			_add_string(fpath, line_number, text)
-			search_index = end_bracket_index
+#			var end_bracket_index := line.find(')', end_quote_index)
+#			if end_bracket_index == -1:
+#				# Multiline or procedural strings not supported
+#				_logger.error("End bracket not found in {0}, line {1}".format([fpath, line_number]))
+#				break
+			
+			if text != "" and text != _prefix:
+				_add_string(fpath, line_number, text)
+#			search_index = end_bracket_index
+			search_index = end_quote_index + 1
 			
 			counter += 1
 			# If that fails it means we spent 100 iterations in the same line, that's suspicious
 			assert(counter < 100)
+
+
+func _process_quoted_text_generic(f: File, fpath: String):
+	var pattern := str("\"", _prefix)
+	var line_number := 0
+	
+	while not f.eof_reached():
+		var line := f.get_line().strip_edges()
+		line_number += 1
+	
+		var search_index := 0
+		while search_index < len(line):
+			var i := line.find(pattern, search_index)
+			if i == -1:
+				break
+			
+			var begin_quote_index := i
+			var end_quote_index := find_unescaped_quote(line, begin_quote_index + 1)
+			if end_quote_index == -1:
+				break
+			
+			var text := line.substr(begin_quote_index + 1, end_quote_index - begin_quote_index - 1)
+			if text != "" and text != _prefix:
+				_add_string(fpath, line_number, text)
+			
+			search_index = end_quote_index + 1
 
 
 static func find_unescaped_quote(s, from) -> int:

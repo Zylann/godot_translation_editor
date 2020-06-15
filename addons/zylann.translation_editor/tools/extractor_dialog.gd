@@ -6,13 +6,14 @@ const Logger = preload("./util/logger.gd")
 
 signal import_selected(strings)
 
-onready var _root_path_edit : LineEdit = $VBoxContainer/HBoxContainer/RootPathEdit
-onready var _excluded_dirs_edit : LineEdit = $VBoxContainer/Options/ExcludedDirsEdit
-onready var _summary_label : Label = $VBoxContainer/StatusBar/SummaryLabel
-onready var _results_list : Tree = $VBoxContainer/Results
-onready var _progress_bar : ProgressBar = $VBoxContainer/StatusBar/ProgressBar
-onready var _extract_button : Button = $VBoxContainer/Buttons/ExtractButton
-onready var _import_button : Button = $VBoxContainer/Buttons/ImportButton
+onready var _root_path_edit : LineEdit = $VB/HB/RootPathEdit
+onready var _excluded_dirs_edit : LineEdit = $VB/HB2/ExcludedDirsEdit
+onready var _prefix_edit : LineEdit = $VB/HB3/PrefixLineEdit
+onready var _summary_label : Label = $VB/StatusBar/SummaryLabel
+onready var _results_list : Tree = $VB/Results
+onready var _progress_bar : ProgressBar = $VB/StatusBar/ProgressBar
+onready var _extract_button : Button = $VB/Buttons/ExtractButton
+onready var _import_button : Button = $VB/Buttons/ImportButton
 
 var _extractor : Extractor = null
 # { string => { fpath => line number } }
@@ -57,10 +58,12 @@ func _on_ExtractButton_pressed():
 	for i in len(excluded_dirs):
 		excluded_dirs[i] = excluded_dirs[i].strip_edges()
 	
+	var prefix := _prefix_edit.text.strip_edges()
+	
 	_extractor = Extractor.new()
 	_extractor.connect("progress_reported", self, "_on_Extractor_progress_reported")
 	_extractor.connect("finished", self, "_on_Extractor_finished")
-	_extractor.extract_async(root, excluded_dirs)
+	_extractor.extract_async(root, excluded_dirs, prefix)
 	
 	_progress_bar.value = 0
 	_progress_bar.show()
