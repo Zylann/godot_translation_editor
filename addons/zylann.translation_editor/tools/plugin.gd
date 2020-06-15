@@ -5,6 +5,12 @@ const TranslationEditor = preload("./translation_editor.gd")
 const TranslationEditorScene = preload("./translation_editor.tscn")
 const Logger = preload("./util/logger.gd")
 
+const _default_settings = {
+	"translation_editor/string_prefix": "",
+	"translation_editor/search_root": "res://",
+	"translation_editor/ignored_folders": "addons"
+}
+
 var _main_control : TranslationEditor = null
 var _logger = Logger.get_for(self)
 
@@ -19,6 +25,12 @@ func _enter_tree():
 	_main_control.configure_for_godot_integration(base_control)
 	_main_control.hide()
 	editor_interface.get_editor_viewport().add_child(_main_control)
+	
+	for key in _default_settings:
+		if not ProjectSettings.has_setting(key):
+			var v = _default_settings[key]
+			ProjectSettings.set_setting(key, v)
+			ProjectSettings.set_initial_value(key, v)
 
 
 func _exit_tree():

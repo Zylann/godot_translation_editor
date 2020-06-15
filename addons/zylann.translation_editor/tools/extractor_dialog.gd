@@ -37,6 +37,16 @@ func _notification(what: int):
 			_results.clear()
 			_results_list.clear()
 			_update_import_button()
+			
+			if ProjectSettings.has_setting("translation_editor/string_prefix"):
+				_prefix_edit.text = ProjectSettings.get_setting("translation_editor/string_prefix")
+
+			if ProjectSettings.has_setting("translation_editor/search_root"):
+				_root_path_edit.text = ProjectSettings.get_setting("translation_editor/search_root")
+
+			if ProjectSettings.has_setting("translation_editor/ignored_folders"):
+				_excluded_dirs_edit.text = \
+					ProjectSettings.get_setting("translation_editor/ignored_folders")
 
 
 func _update_import_button():
