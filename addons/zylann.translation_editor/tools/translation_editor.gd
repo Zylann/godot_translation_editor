@@ -25,6 +25,10 @@ const MENU_FILE_EXTRACT = 6
 const FORMAT_CSV = 0
 const FORMAT_GETTEXT = 1
 
+const STATUS_UNTRANSLATED = 0
+const STATUS_PARTIALLY_TRANSLATED = 1
+const STATUS_TRANSLATED = 2
+
 onready var _file_menu : MenuButton = $VBoxContainer/MenuBar/FileMenu
 onready var _edit_menu : MenuButton = $VBoxContainer/MenuBar/EditMenu
 onready var _search_edit : LineEdit = $VBoxContainer/Main/LeftPane/Search/Search
@@ -46,12 +50,15 @@ var _save_file_dialog : FileDialog = null
 var _save_folder_dialog : FileDialog = null
 # This is set when integrated as a Godot plugin
 var _base_control : Control = null
+# language => TextEdit
 var _translation_edits := {}
 var _dialogs_to_free_on_exit := []
 var _logger = Logger.get_for(self)
+var _string_status_icons := [null, null, null]
 
-# {stringID => {language => text}}
+# {stringID => {comments: string, languages: {string => text}}}
 var _data := {}
+# string[]
 var _languages := []
 var _current_path := ""
 var _current_format := FORMAT_CSV
@@ -62,6 +69,11 @@ func _ready():
 	# I don't want any of this to run in the edited scene (because `tool`)...
 	if Util.is_in_edited_scene(self):
 		return
+	
+	# TODO these icons are blank when running as a game
+	_string_status_icons[STATUS_UNTRANSLATED] = get_icon("StatusError", "EditorIcons")
+	_string_status_icons[STATUS_PARTIALLY_TRANSLATED] = get_icon("StatusWarning", "EditorIcons")
+	_string_status_icons[STATUS_TRANSLATED] = get_icon("StatusSuccess", "EditorIcons")
 	
 	_file_menu.get_popup().add_item("Open...", MENU_FILE_OPEN)
 	_file_menu.get_popup().add_item("Save", MENU_FILE_SAVE)
@@ -201,11 +213,11 @@ func _on_OpenDialog_file_selected(filepath: String):
 
 
 func _on_SaveFileDialog_file_selected(filepath: String):
-	save_file(filepath, FORMAT_CSV)
+	_save_file(filepath, FORMAT_CSV)
 
 
 func _on_SaveFolderDialog_dir_selected(filepath: String):
-	save_file(filepath, FORMAT_GETTEXT)
+	_save_file(filepath, FORMAT_GETTEXT)
 
 
 func _on_OpenButton_pressed():
@@ -229,7 +241,7 @@ func _save():
 		# Have to default to CSV for now...
 		_save_file_dialog.popup_centered_ratio()
 	else:
-		save_file(_current_path, _current_format)
+		_save_file(_current_path, _current_format)
 
 
 func load_file(filepath: String):
@@ -298,15 +310,24 @@ func _on_TranslationEdit_text_changed(language: String):
 	# TODO Don't show the editor if no strings are selected
 	if len(selected_strids) != 1:
 		return
+
 	#assert(len(selected_strids) == 1)
-	var strid := _string_list.get_item_text(selected_strids[0])
+	var list_index : int = selected_strids[0]
+	var strid := _string_list.get_item_text(list_index)
 	var prev_text : String
+
 	var s : Dictionary = _data[strid]
+
 	if s.translations.has(language):
 		prev_text = s.translations[language]
+
 	if prev_text != edit.text:
 		s.translations[language] = edit.text
 		_set_language_modified(language)
+		
+		# Update status icon
+		var status := _get_string_status(strid)
+		_string_list.set_item_icon(list_index, _string_status_icons[status])
 
 
 func _on_NotesEdit_text_changed():
@@ -360,7 +381,7 @@ func get_current_language() -> String:
 	return ""
 
 
-func save_file(path: String, format: int):
+func _save_file(path: String, format: int):
 	var saved_languages := []
 	
 	if format == FORMAT_GETTEXT:
@@ -387,6 +408,11 @@ func save_file(path: String, format: int):
 
 
 func refresh_list():
+	var prev_selection := _string_list.get_selected_items()
+	var prev_selected_strid := ""
+	if len(prev_selection) > 0:
+		prev_selected_strid = _string_list.get_item_text(prev_selection[0])
+	
 	var search_text := _search_edit.text.strip_edges()
 	
 	var sorted_strids := []
@@ -401,7 +427,36 @@ func refresh_list():
 	
 	_string_list.clear()
 	for strid in sorted_strids:
+		var i := _string_list.get_item_count()
 		_string_list.add_item(strid)
+		var status := _get_string_status(strid)
+		var icon = _string_status_icons[status]
+		_string_list.set_item_icon(i, icon)
+	
+	# Preserve selection
+	if prev_selected_strid != "":
+		for i in _string_list.get_item_count():
+			if _string_list.get_item_text(i) == prev_selected_strid:
+				_string_list.select(i)
+				# Normally not necessary, unless the list changed a lot
+				_string_list.ensure_current_is_visible()
+				break
+
+
+func _get_string_status(strid: String) -> int:
+	if len(_languages) == 0:
+		return STATUS_UNTRANSLATED
+	var s : Dictionary = _data[strid]
+	var translated_count := 0
+	for language in s.translations:
+		var text : String = s.translations[language].strip_edges()
+		if text != "":
+			translated_count += 1
+	if translated_count == len(_languages):
+		return STATUS_TRANSLATED
+	if translated_count <= 1:
+		return STATUS_UNTRANSLATED
+	return STATUS_PARTIALLY_TRANSLATED
 
 
 func _on_StringList_item_selected(index: int):
@@ -454,9 +509,9 @@ func _on_RenameButton_pressed():
 
 func _on_StringEditionDialog_submitted(str_id: String, prev_str_id: String):
 	if prev_str_id == "":
-		add_new_string(str_id)
+		_add_new_string(str_id)
 	else:
-		rename_string(prev_str_id, str_id)
+		_rename_string(prev_str_id, str_id)
 
 
 func _validate_new_string_id(str_id: String):
@@ -470,7 +525,7 @@ func _validate_new_string_id(str_id: String):
 	return true
 
 
-func add_new_string(strid: String):
+func _add_new_string(strid: String):
 	_logger.debug(str("Adding new string ", strid))
 	assert(not _data.has(strid))
 	var s := {
@@ -483,10 +538,29 @@ func add_new_string(strid: String):
 		_set_language_modified(language)
 		
 	# Update UI
-	_string_list.add_item(strid)
+	refresh_list()
 
 
-func rename_string(old_strid: String, new_strid: String):
+func _add_new_strings(strids: Array):
+	if len(strids) == 0:
+		return
+	
+	for strid in strids:
+		assert(not _data.has(strid))
+		var s := {
+			"translations": {},
+			"comments": ""
+		}
+		_data[strid] = s
+
+	for language in _languages:
+		_set_language_modified(language)
+		
+	# Update UI
+	refresh_list()
+
+
+func _rename_string(old_strid: String, new_strid: String):
 	assert(_data.has(old_strid))
 	var s : Dictionary = _data[old_strid]
 	_data.erase(old_strid)
@@ -513,6 +587,8 @@ func _add_language(language: String):
 	_file_menu.get_popup().set_item_disabled(menu_index, false)
 	
 	_logger.debug(str("Added language ", language))
+	
+	refresh_list()
 
 
 func _remove_language(language: String):
@@ -529,6 +605,8 @@ func _remove_language(language: String):
 		_file_menu.get_popup().set_item_disabled(menu_index, true)
 
 	_logger.debug(str("Removed language ", language))
+	
+	refresh_list()
 
 
 func _on_RemoveLanguageConfirmationDialog_confirmed():
@@ -545,9 +623,11 @@ func _is_string_registered(text: String) -> bool:
 
 
 func _on_ExtractorDialog_import_selected(results: Dictionary):
+	var new_strings = []
 	for text in results:
 		if not _is_string_registered(text):
-			add_new_string(text)
+			new_strings.append(text)
+	_add_new_strings(new_strings)
 
 
 func _on_Search_text_changed(search_text: String):
