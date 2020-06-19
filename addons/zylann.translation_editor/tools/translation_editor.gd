@@ -56,7 +56,7 @@ var _dialogs_to_free_on_exit := []
 var _logger = Logger.get_for(self)
 var _string_status_icons := [null, null, null]
 
-# {stringID => {comments: string, languages: {string => text}}}
+# {string_id => {comments: string, translations: {language_name => text}}}
 var _data := {}
 # string[]
 var _languages := []
@@ -300,8 +300,33 @@ func _create_translation_edit(language: String):
 	var tab_index := _translation_tab_container.get_tab_count()
 	_translation_tab_container.add_child(edit)
 	_translation_tab_container.set_tab_title(tab_index, language)
+
+	var strid := _get_selected_string_id()
+	if strid != "":
+		var s = _data[strid]
+		if s.translations.has(language):
+			edit.text = s.translations[language]
+		var status := _get_string_status_for_language(strid, language)
+		var icon = _string_status_icons[status]
+		_translation_tab_container.set_tab_icon(tab_index, icon)
+
 	_translation_edits[language] = edit
 	edit.connect("text_changed", self, "_on_TranslationEdit_text_changed", [language])
+
+
+func _get_selected_string_id() -> String:
+	var selected = _string_list.get_selected_items()
+	if len(selected) == 0:
+		return ""
+	return _string_list.get_item_text(selected[0])
+
+
+func _get_language_tab_index(language: String) -> int:
+	var page = _translation_edits[language]
+	for i in _translation_tab_container.get_child_count():
+		if _translation_tab_container.get_child(i) == page:
+			return i
+	return -1
 
 
 func _on_TranslationEdit_text_changed(language: String):
@@ -328,6 +353,10 @@ func _on_TranslationEdit_text_changed(language: String):
 		# Update status icon
 		var status := _get_string_status(strid)
 		_string_list.set_item_icon(list_index, _string_status_icons[status])
+		
+		var tab_index := _get_language_tab_index(language)
+		var tab_status := _get_string_status_for_language(strid, language)
+		_translation_tab_container.set_tab_icon(tab_index, _string_status_icons[tab_status])
 
 
 func _on_NotesEdit_text_changed():
@@ -359,16 +388,12 @@ func _set_language_unmodified(language: String):
 
 
 func _set_language_tab_title(language: String, title: String):
-	var page = _translation_edits[language]
-	for i in _translation_tab_container.get_child_count():
-		if _translation_tab_container.get_child(i) == page:
-			_translation_tab_container.set_tab_title(i, title)
-			# TODO There seem to be a Godot bug, tab titles don't update unless you click on them Oo
-			# See https://github.com/godotengine/godot/issues/23696
-			_translation_tab_container.update()
-			return
-	# Something bad happened
-	assert(false)
+	var tab_index := _get_language_tab_index(language)
+	assert(tab_index != -1)
+	_translation_tab_container.set_tab_title(tab_index, title)
+	# TODO There seem to be a Godot bug, tab titles don't update unless you click on them Oo
+	# See https://github.com/godotengine/godot/issues/23696
+	_translation_tab_container.update()
 
 
 func _get_current_language() -> String:
@@ -443,6 +468,18 @@ func _refresh_list():
 				break
 
 
+func _get_string_status_for_language(strid: String, language: String) -> int:
+	if len(_languages) == 0:
+		return STATUS_UNTRANSLATED
+	var s : Dictionary = _data[strid]
+	if not s.translations.has(language):
+		return STATUS_UNTRANSLATED
+	var text : String = s.translations[language].strip_edges()
+	if text != "":
+		return STATUS_TRANSLATED
+	return STATUS_UNTRANSLATED
+
+
 func _get_string_status(strid: String) -> int:
 	if len(_languages) == 0:
 		return STATUS_UNTRANSLATED
@@ -469,6 +506,10 @@ func _on_StringList_item_selected(index: int):
 			e.text = s.translations[language]
 		else:
 			e.text = ""
+		var status = _get_string_status_for_language(str_id, language)
+		var icon = _string_status_icons[status]
+		var tab_index = _get_language_tab_index(language)
+		_translation_tab_container.set_tab_icon(tab_index, icon)
 	_notes_edit.text = s.comments
 
 
