@@ -55,6 +55,17 @@ margin_right = 147.0
 margin_bottom = 24.0
 icon = ExtResource( 3 )
 
+[node name="VSeparator2" type="VSeparator" parent="VBoxContainer/MenuBar"]
+margin_left = 151.0
+margin_right = 155.0
+margin_bottom = 24.0
+
+[node name="ShowUntranslated" type="CheckBox" parent="VBoxContainer/MenuBar"]
+margin_left = 159.0
+margin_right = 304.0
+margin_bottom = 24.0
+text = "Show untranslated"
+
 [node name="Main" type="HSplitContainer" parent="VBoxContainer"]
 margin_top = 28.0
 margin_right = 1016.0
@@ -154,6 +165,7 @@ margin_bottom = 14.0
 text = "Status"
 [connection signal="pressed" from="VBoxContainer/MenuBar/OpenButton" to="." method="_on_OpenButton_pressed"]
 [connection signal="pressed" from="VBoxContainer/MenuBar/SaveButton" to="." method="_on_SaveButton_pressed"]
+[connection signal="toggled" from="VBoxContainer/MenuBar/ShowUntranslated" to="." method="_on_ShowUntranslated_toggled"]
 [connection signal="text_changed" from="VBoxContainer/Main/LeftPane/Search/Search" to="." method="_on_Search_text_changed"]
 [connection signal="pressed" from="VBoxContainer/Main/LeftPane/Search/ClearSearch" to="." method="_on_ClearSearch_pressed"]
 [connection signal="item_selected" from="VBoxContainer/Main/LeftPane/StringList" to="." method="_on_StringList_item_selected"]

@@ -39,6 +39,7 @@ onready var _translation_tab_container : TabContainer = \
 onready var _notes_edit : TextEdit = \
 	$VBoxContainer/Main/RightPane/VSplitContainer/VBoxContainer/NotesEdit
 onready var _status_label : Label = $VBoxContainer/StatusBar/Label
+onready var _show_untranslated_checkbox : CheckBox = $VBoxContainer/MenuBar/ShowUntranslated
 
 var _string_edit_dialog : StringEditionDialog = null
 var _language_selection_dialog : LanguageSelectionDialog = null
@@ -439,14 +440,15 @@ func _refresh_list():
 		prev_selected_strid = _string_list.get_item_text(prev_selection[0])
 	
 	var search_text := _search_edit.text.strip_edges()
+	var show_untranslated := _show_untranslated_checkbox.pressed
 	
 	var sorted_strids := []
-	if search_text == "":
-		sorted_strids = _data.keys()
-	else:
-		for strid in _data.keys():
-			if strid.find(search_text) != -1:
-				sorted_strids.append(strid)
+	for strid in _data.keys():
+		if show_untranslated and _get_string_status(strid) == STATUS_TRANSLATED:
+			continue
+		if search_text != "" and strid.find(search_text) == -1:
+			continue
+		sorted_strids.append(strid)
 	
 	sorted_strids.sort()
 	
@@ -680,3 +682,7 @@ func _on_ClearSearch_pressed():
 	_search_edit.text = ""
 	# LineEdit does not emit `text_changed` when doing this
 	_on_Search_text_changed(_search_edit.text)
+
+
+func _on_ShowUntranslated_toggled(button_pressed):
+	_refresh_list()
