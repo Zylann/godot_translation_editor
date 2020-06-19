@@ -10,7 +10,7 @@ static func load_po_translation(folder_path: String, valid_locales: Array, logge
 	var config := {}
 	
 	# TODO Get languages from configs, not from filenames
-	var languages := get_languages_in_folder(folder_path, valid_locales, logger)
+	var languages := _get_languages_in_folder(folder_path, valid_locales, logger)
 	
 	if len(languages) == 0:
 		logger.error("No .po languages were found in {0}".format([folder_path]))
@@ -217,7 +217,7 @@ static func _write_msg(f: File, msgtype: String, msg: String):
 		f.store_line(str(" \"", lines[i], "\""))
 
 
-static func get_languages_in_folder(folder_path: String, valid_locales: Array, logger) -> Array:
+static func _get_languages_in_folder(folder_path: String, valid_locales: Array, logger) -> Array:
 	var result := []
 	var d := Directory.new()
 	var err := d.open(folder_path)

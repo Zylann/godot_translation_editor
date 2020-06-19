@@ -53,18 +53,18 @@ func _validate():
 
 
 func _on_LineEdit_text_entered(new_text: String):
-	submit()
+	_submit()
 
 
 func _on_OkButton_pressed():
-	submit()
+	_submit()
 
 
 func _on_CancelButton_pressed():
 	hide()
 
 
-func submit():
+func _submit():
 	var s := _line_edit.text.strip_edges()
 	emit_signal("submitted", s, _prev_str_id)
 	hide()

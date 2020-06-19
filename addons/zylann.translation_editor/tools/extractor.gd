@@ -244,7 +244,7 @@ func _process_gd(f: File, fpath: String):
 					# No quote found in entire line, skip
 					break
 			
-			var end_quote_index := find_unescaped_quote(line, begin_quote_index + 1)
+			var end_quote_index := _find_unescaped_quote(line, begin_quote_index + 1)
 			if end_quote_index == -1:
 				# Multiline or procedural strings not supported
 				_logger.error("End quote not found in {0}, line {1}".format([fpath, line_number]))
@@ -282,7 +282,7 @@ func _process_quoted_text_generic(f: File, fpath: String):
 				break
 			
 			var begin_quote_index := i
-			var end_quote_index := find_unescaped_quote(line, begin_quote_index + 1)
+			var end_quote_index := _find_unescaped_quote(line, begin_quote_index + 1)
 			if end_quote_index == -1:
 				break
 			
@@ -293,7 +293,7 @@ func _process_quoted_text_generic(f: File, fpath: String):
 			search_index = end_quote_index + 1
 
 
-static func find_unescaped_quote(s, from) -> int:
+static func _find_unescaped_quote(s, from) -> int:
 	while true:
 		var i = s.find('"', from)
 		if i <= 0:

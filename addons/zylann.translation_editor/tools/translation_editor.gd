@@ -195,7 +195,7 @@ func _on_FileMenu_id_pressed(id: int):
 			_language_selection_dialog.popup_centered_ratio()
 			
 		MENU_FILE_REMOVE_LANGUAGE:
-			var language := get_current_language()
+			var language := _get_current_language()
 			_remove_language_confirmation_dialog.window_title = \
 				str("Remove language `", language, "`")
 			_remove_language_confirmation_dialog.popup_centered_minsize()
@@ -209,7 +209,7 @@ func _on_EditMenu_id_pressed(id: int):
 
 
 func _on_OpenDialog_file_selected(filepath: String):
-	load_file(filepath)
+	_load_file(filepath)
 
 
 func _on_SaveFileDialog_file_selected(filepath: String):
@@ -244,7 +244,7 @@ func _save():
 		_save_file(_current_path, _current_format)
 
 
-func load_file(filepath: String):
+func _load_file(filepath: String):
 	var ext := filepath.get_extension()
 	
 	if ext == "po":
@@ -279,7 +279,7 @@ func load_file(filepath: String):
 	for language in _languages:
 		_create_translation_edit(language)
 	
-	refresh_list()
+	_refresh_list()
 	_modified_languages.clear()
 	_update_status_label()
 
@@ -371,7 +371,7 @@ func _set_language_tab_title(language: String, title: String):
 	assert(false)
 
 
-func get_current_language() -> String:
+func _get_current_language() -> String:
 	var page = _translation_tab_container.get_current_tab_control()
 	for language in _translation_edits:
 		if _translation_edits[language] == page:
@@ -407,7 +407,7 @@ func _save_file(path: String, format: int):
 	_update_status_label()
 
 
-func refresh_list():
+func _refresh_list():
 	var prev_selection := _string_list.get_selected_items()
 	var prev_selected_strid := ""
 	if len(prev_selection) > 0:
@@ -538,7 +538,7 @@ func _add_new_string(strid: String):
 		_set_language_modified(language)
 		
 	# Update UI
-	refresh_list()
+	_refresh_list()
 
 
 func _add_new_strings(strids: Array):
@@ -557,7 +557,7 @@ func _add_new_strings(strids: Array):
 		_set_language_modified(language)
 		
 	# Update UI
-	refresh_list()
+	_refresh_list()
 
 
 func _rename_string(old_strid: String, new_strid: String):
@@ -588,7 +588,7 @@ func _add_language(language: String):
 	
 	_logger.debug(str("Added language ", language))
 	
-	refresh_list()
+	_refresh_list()
 
 
 func _remove_language(language: String):
@@ -606,11 +606,11 @@ func _remove_language(language: String):
 
 	_logger.debug(str("Removed language ", language))
 	
-	refresh_list()
+	_refresh_list()
 
 
 func _on_RemoveLanguageConfirmationDialog_confirmed():
-	var language := get_current_language()
+	var language := _get_current_language()
 	_remove_language(language)
 
 
@@ -632,7 +632,7 @@ func _on_ExtractorDialog_import_selected(results: Dictionary):
 
 func _on_Search_text_changed(search_text: String):
 	_clear_search_button.visible = (search_text != "")
-	refresh_list()
+	_refresh_list()
 
 
 func _on_ClearSearch_pressed():

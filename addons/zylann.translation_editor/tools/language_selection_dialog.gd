@@ -14,10 +14,10 @@ var _hidden_locales := []
 
 func configure(hidden_locales):
 	_hidden_locales = hidden_locales
-	refresh_list()
+	_refresh_list()
 
 
-func refresh_list():
+func _refresh_list():
 	_languages_list.clear()
 	
 	var filter := _filter_edit.text.strip_edges()
@@ -38,14 +38,14 @@ func refresh_list():
 	_ok_button.disabled = true
 
 
-func submit():
+func _submit():
 	var item := _languages_list.get_selected()
 	emit_signal("language_selected", item.get_text(0))
 	hide()
 
 
 func _on_OkButton_pressed():
-	submit()
+	_submit()
 
 
 func _on_CancelButton_pressed():
@@ -61,8 +61,8 @@ func _on_LanguagesList_nothing_selected():
 
 
 func _on_LanguagesList_item_activated():
-	submit()
+	_submit()
 
 
 func _on_FilterEdit_text_changed(new_text):
-	refresh_list()
+	_refresh_list()
